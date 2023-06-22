@@ -321,8 +321,6 @@ class UPF4ROS2Node(Node):
             srv = Replan.Request()
             srv.plan_result.plan = generatedPlan.plan
             self.future = self._replan_client.call_async(srv)
-            # replace this with nonblocking?
-            rclpy.spin_until_future_complete(self, self.future)
 
 def main(args=None):
     rclpy.init(args=args)

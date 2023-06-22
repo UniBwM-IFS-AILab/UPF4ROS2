@@ -21,9 +21,6 @@ class CustomActionClient:
         self.result_callback = result_callback
         self.future_handle = None
         
-
-        
-    
     def send_action_goal(self, actionInstance, params, future):
         self.logger.info(f"Starting action '{self.action_name}'")
         self._action = actionInstance
@@ -52,22 +49,13 @@ class CustomActionClient:
         
     def get_result_callback(self, future):
         self.result_callback(self._action, self._params, future.result().status)
-        if future.result().status == 4:
+        status = future.result().status
+        if status == 4:
             self.future_handle.set_result("Finished")
 
     def cancel_action_goal(self):
-        future = self._goal_handle.cancel_goal_async()
-        future.add_done_callback(self.goal_canceled_callback)
-        
-        self.logger.info("before cancel_action_goal")
-        self.action_done_event.wait()
-        self.logger.info("after cancel_action_goal")
-
-    def goal_canceled_callback(self, future):
-        self.logger.info("goal_canceled_callback")
-        cancel_response = future.result()
-        if len(cancel_response.goals_canceling) == 0:
-            self.logger.info('Goal failed to cancel')
-        self.logger.info("before event goal_canceled_callback")
-        self.action_done_event.set()
-        self.logger.info("End goal_canceled_callback")
+        self.logger.info('Cancelling goal')
+        try:
+            self._goal_handle.cancel_goal()
+        except:
+            self.logger.info('Error! No valid goal handle')

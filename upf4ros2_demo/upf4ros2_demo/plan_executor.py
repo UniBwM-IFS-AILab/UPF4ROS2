@@ -1,4 +1,5 @@
 import rclpy
+import json
 
 from rclpy.task import Future
 from rclpy.action import ActionClient
@@ -118,7 +119,6 @@ class PlanExecutorNode(Node):
         # maps identifiers of action parameters to their concrete instance
         # e.g. x : myuav, y : urbanArea, z : home
         paramMap = {action.parameters[i].name : parameters[i]  for i in range(len(parameters))}
-
         # loop through all effects of the action and update the initial state of the problem accordingly
         for effect in action.effects:
             fluent = effect.fluent.fluent()
@@ -138,9 +138,10 @@ class PlanExecutorNode(Node):
         upf_goal = msgs.Goal()
         upf_goal.goal = self._ros2_interface_writer.convert(goal)
         srv.goal.append(upf_goal)
-        #test = RosMsgConverter.message_to_ordereddict(srv)
-        #with open('result.json', 'w') as fp:
-        #    json.dump(test, fp)
+        test = RosMsgConverter.message_to_ordereddict(srv)
+        with open('result.json', 'w') as fp:
+            json.dump(test, fp)
+        #self.get_logger().info("srv: " + str(srv))
         self._add_goal.wait_for_service()
         self.future = self._add_goal.call_async(srv)
         rclpy.spin_until_future_complete(self, self.future)
@@ -234,7 +235,7 @@ class PlanExecutorNode(Node):
             self.get_logger().info("Error! Received invalid action name")
             return
         #test code -> delete later
-        #self.add_goal(self._fluents['landed'](self._objects['myuav']))
+        #self.add_goal(self._fluents['visited'](self._objects['myuav'],self._objects['waters1']))
 
         
     def replan(self, request, response):
@@ -270,15 +271,15 @@ class PlanExecutorNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    ste = MultiThreadedExecutor()
+    mte = MultiThreadedExecutor()
     plan_executor_node = PlanExecutorNode()
     plan_executor_node.get_plan_srv()    
-    plan_finished_future = Future(executor=ste)
+    plan_finished_future = Future(executor=mte)
     while plan_finished_future.done() == False:
-        plan_executor_node.log_function()
-        action_finished_future = Future(executor=ste)
+        #plan_executor_node.log_function()
+        action_finished_future = Future(executor=mte)
         plan_executor_node.execute_plan(action_finished_future,plan_finished_future)
-        rclpy.spin_until_future_complete(plan_executor_node,action_finished_future,ste)
+        rclpy.spin_until_future_complete(plan_executor_node,action_finished_future,mte)
         
     plan_executor_node.destroy_node()
     rclpy.shutdown()
