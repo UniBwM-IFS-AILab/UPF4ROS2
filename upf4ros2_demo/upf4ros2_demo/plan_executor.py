@@ -5,6 +5,7 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from rosidl_runtime_py import convert as RosMsgConverter
 from rclpy.executors import SingleThreadedExecutor
+from rclpy.executors import MultiThreadedExecutor
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -192,9 +193,12 @@ class PlanExecutorNode(Node):
             action (_type_): _description_
             params (_type_): _description_
             result (_type_): _description_
-        """        
-        self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
-        self.update_initial_state(self._actions[action.action_name], params)
+        """
+        if result == 4:
+            self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
+            self.update_initial_state(self._actions[action.action_name], params)
+        else:
+            self.get_logger().info("Canceled action: " + action.action_name+"("+", ".join(params)+")")
         # TODO: add error handling
 
     # TODO: add implementation
@@ -246,25 +250,32 @@ class PlanExecutorNode(Node):
         self.get_logger().info("Replanning: ")
         # cancel current action
         if self._current_action_client != None:
-            # TODO: add error handling
+            # TODO: make this call blocking
             self._current_action_client.cancel_action_goal()
             self.get_logger().info("Successfully canceled actions")
         # get new plan
         self._plan = request.plan_result.plan.actions
-        self.get_logger().info("New plan: " + str(self._plan))
+        self.get_logger().info("New plan: ")
+        for action in self._plan:
+            params = [x.symbol_atom[0] for x in action.parameters]
+            self.get_logger().info("action: " + action.action_name+"("+", ".join(params)+")") 
+        
         # start new plan -> don't call execute plan here (called in main loop instead)
         self._current_action_future.set_result("Finished")
         response.success = True
         return response
+    
+    def log_function(self):
+        self.get_logger().info("MAIN LOOP")
 
 def main(args=None):
     rclpy.init(args=args)
-    ste = SingleThreadedExecutor()
+    ste = MultiThreadedExecutor()
     plan_executor_node = PlanExecutorNode()
     plan_executor_node.get_plan_srv()    
-    
     plan_finished_future = Future(executor=ste)
     while plan_finished_future.done() == False:
+        plan_executor_node.log_function()
         action_finished_future = Future(executor=ste)
         plan_executor_node.execute_plan(action_finished_future,plan_finished_future)
         rclpy.spin_until_future_complete(plan_executor_node,action_finished_future,ste)

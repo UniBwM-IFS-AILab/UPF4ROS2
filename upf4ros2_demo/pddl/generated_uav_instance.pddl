@@ -10,6 +10,6 @@ urbanareas0 openareas0 openareas1 openareas2 openareas3 openareas4 openareas5 op
 
 (:goal (and
 
-(visited myUAV waters0) (landed myUAV)
+(visited myUAV waters0)
 ))
 )
