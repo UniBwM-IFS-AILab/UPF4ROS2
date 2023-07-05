@@ -7,8 +7,9 @@ from upf4ros2_demo.action_clients.customaction_client import CustomActionClient
 
 class FlyActionClient(CustomActionClient):
 
-    def __init__(self, node, feedback_callback, result_callback):
-        super().__init__(node, feedback_callback, result_callback,"/navigate_to_pose")
+    def __init__(self, node, feedback_callback, result_callback, drone_prefix):
+        action_name = drone_prefix + "navigate_to_pose"
+        super().__init__(node, feedback_callback, result_callback, action_name)
         lookupTablePath = (get_package_share_directory('upf4ros2_demo')
                                 + str('/params/lookupTable.json'))
         self._lookupTable = dict()

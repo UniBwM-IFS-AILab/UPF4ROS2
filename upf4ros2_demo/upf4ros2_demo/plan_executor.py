@@ -44,22 +44,24 @@ class PlanExecutorNode(Node):
         self._fluents = {}
         self._plan = []
         self._current_action_future = None
+        self._current_action_client = None
         # test code for debugging deadlocks -> remove later
         #timer_period = 2.0
         #timer = self.create_timer(timer_period, self.timer_callback)
         self.declare_parameter('domain', '/pddl/uav_domain.pddl')
         self.declare_parameter('problem', '/pddl/generated_uav_instance.pddl')
+        self.declare_parameter('drone_prefix', rclpy.Parameter.Type.STRING)
 
         self._domain = self.get_parameter('domain')
         self._problem = self.get_parameter('problem')
+        self._drone_prefix = self.get_parameter('drone_prefix').get_parameter_value().string_value
 
         self._ros2_interface_writer = ROS2InterfaceWriter()
         self._ros2_interface_reader = ROS2InterfaceReader()
 
-        self._take_off_client = TakeOffActionClient(self,self.action_feedback_callback,self.finished_action_callback)
-        self._land_client = LandActionClient(self,self.action_feedback_callback,self.finished_action_callback)
-        self._fly_client = FlyActionClient(self,self.action_feedback_callback,self.finished_action_callback)
-        self._current_action_client = None
+        self._take_off_client = TakeOffActionClient(self,self.action_feedback_callback,self.finished_action_callback,self._drone_prefix)
+        self._land_client = LandActionClient(self,self.action_feedback_callback,self.finished_action_callback,self._drone_prefix)
+        self._fly_client = FlyActionClient(self,self.action_feedback_callback,self.finished_action_callback,self._drone_prefix)
 
         self._plan_pddl_one_shot_client = ActionClient(
             self, 
@@ -195,6 +197,7 @@ class PlanExecutorNode(Node):
             params (_type_): _description_
             result (_type_): _description_
         """
+        # TODO: replace magic number -> 4 is the code for successfully completed action in NavigateToPose action format, 5 for canceled action
         if result == 4:
             self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
             self.update_initial_state(self._actions[action.action_name], params)
