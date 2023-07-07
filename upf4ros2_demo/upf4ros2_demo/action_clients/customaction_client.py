@@ -8,10 +8,10 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 class CustomActionClient:
 
     def __init__(self, node, feedback_callback, result_callback, ros_action_name):
-        self.action_name=''
+        self.action_name = ''
         self.logger = logging.get_logger(self.__class__.__name__) #self.__class__.__name__ otherwise __class__.__name__ print CustomActionClient
         self.callback_group = ReentrantCallbackGroup()
-        self.__action_client=ActionClient(node, NavigateToPose, ros_action_name, callback_group=self.callback_group)#ARG
+        self.__action_client = ActionClient(node, NavigateToPose, ros_action_name, callback_group=self.callback_group)#ARG
         self._action = None
         self._params = []
         self._goal_handle = None

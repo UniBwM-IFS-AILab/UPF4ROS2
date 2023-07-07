@@ -70,12 +70,12 @@ class PlanExecutorNode(Node):
         self._ros2_interface_writer = ROS2InterfaceWriter()
         self._ros2_interface_reader = ROS2InterfaceReader()
         
-        self.sub_node = rclpy.create_node('sub_node')
+        self.sub_node = rclpy.create_node('sub_node_' + self._drone_prefix[0:-1], use_global_arguments=False)
 
         self._take_off_client = TakeOffActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         self._land_client = LandActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         self._fly_client = FlyActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
-        self._inspect_client=InspectActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        self._inspect_client = InspectActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         
         self._current_action_client = None
 
