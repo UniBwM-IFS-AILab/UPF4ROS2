@@ -178,7 +178,6 @@ class PlanExecutorNode(Node):
         srv = PDDLPlanOneShotSrv.Request()
         srv.plan_request.mode = msgs.PDDLPlanRequest.FILE
         self._problem = self.get_parameter('problem')
-        self.get_logger().info(f"{self._problem}")
         srv.plan_request.domain = (get_package_share_directory('upf4ros2_demo')
                                         + str(self._domain.value))
         srv.plan_request.problem = (get_package_share_directory('upf4ros2_demo')
@@ -275,51 +274,29 @@ class PlanExecutorNode(Node):
         self.get_logger().info(f'In execute callback {goal_handle.request.init_status}')
         #self.get_plan_srv()
         self.launch_every()
-        self.get_logger().info(f'end plan')
         goal_handle.succeed()
-        self.get_logger().info(f'succeed')
         result=Mission.Result()
         result.final_status=[0,1,0,0]
         return result
 
     def launch_every(self):
         ste = SingleThreadedExecutor()
-        self.get_logger().info(f'Launch0')
         self.get_plan_srv()
-        self.get_logger().info(f'Launch1')
         plan_finished_future = Future(executor=ste)
-        self.get_logger().info(f'Launch2')
         while plan_finished_future.done() == False:
-            self.get_logger().info(f'Launch3')
             action_finished_future = Future(executor=ste)
-            self.get_logger().info(f'Launch4')
             self.execute_plan(action_finished_future,plan_finished_future)
-            self.get_logger().info(f'Launch5')
             #if len(self._plan) == 0:
                 #break
             rclpy.spin_until_future_complete(self.sub_node,action_finished_future,ste)
-            self.get_logger().info(f'Launch6')
-        self.get_logger().info(f'Launch7')
         #rclpy.spin(self)
 
 
 def main(args=None):
     rclpy.init(args=args)
     plan_executor_node = PlanExecutorNode()
-    #plan_executor_node.launch_every()
-    plan_executor_node.get_logger().info(f'spin')
+    plan_executor_node.launch_every()
     rclpy.spin(plan_executor_node)
-    plan_executor_node.get_logger().info(f'afterspin')
-    #ste = SingleThreadedExecutor()
-    #plan_executor_node = PlanExecutorNode()
-    #plan_executor_node.get_plan_srv()    
-    
-    #plan_finished_future = Future(executor=ste)
-    #while plan_finished_future.done() == False:
-        #action_finished_future = Future(executor=ste)
-        #plan_executor_node.execute_plan(action_finished_future,plan_finished_future)
-        #rclpy.spin_until_future_complete(plan_executor_node,action_finished_future,ste)
-        
     plan_executor_node.destroy_node()
     rclpy.shutdown()
 
