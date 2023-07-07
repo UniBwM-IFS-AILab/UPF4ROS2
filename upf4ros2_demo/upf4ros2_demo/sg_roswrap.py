@@ -149,12 +149,9 @@ def main(args=None):
     rclpy.init()
     gamenode=GameROSWrapper()
     gamenode.solvegame()
-    gamenode.get_logger().info("Test1")
     status=[0,0,0,1]
-    gamenode.launch_game(status)
-    gamenode.get_logger().info(f"Test order")
+    #gamenode.launch_game(status)
     rclpy.spin(gamenode)
-    gamenode.get_logger().info("Test2")
 
     gamenode.destroy_node()
 
