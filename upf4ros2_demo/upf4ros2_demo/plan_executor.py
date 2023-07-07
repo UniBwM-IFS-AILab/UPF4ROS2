@@ -1,10 +1,12 @@
 import rclpy
+import json
 
 from rclpy.task import Future
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rosidl_runtime_py import convert as RosMsgConverter
 from rclpy.executors import SingleThreadedExecutor
+from rclpy.executors import MultiThreadedExecutor
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -47,25 +49,35 @@ class PlanExecutorNode(Node):
         self._fluents = {}
         self._plan = []
         self._current_action_future = None
+        self._current_action_client = None
         # test code for debugging deadlocks -> remove later
-        timer_period = 10.0
-        timer = self.create_timer(timer_period, self.timer_callback)
-        self.declare_parameter('domain', '/pddl/monitor_domain_upf.pddl')
-        self.declare_parameter('problem', '/pddl/monitorproblem_0.pddl')
+
+        # timer_period = 10.0
+        # timer = self.create_timer(timer_period, self.timer_callback)
+        
+        # separate pddl files for stochastic game
+        # self.declare_parameter('domain', '/pddl/monitor_domain_upf.pddl')
+        # self.declare_parameter('problem', '/pddl/monitorproblem_0.pddl')
+
+        self.declare_parameter('domain', '/pddl/uav_domain.pddl')
+        self.declare_parameter('problem', '/pddl/generated_uav_instance.pddl')
+        self.declare_parameter('drone_prefix', rclpy.Parameter.Type.STRING)
 
         self._domain = self.get_parameter('domain')
         self._problem = self.get_parameter('problem')
+        self._drone_prefix = self.get_parameter('drone_prefix').get_parameter_value().string_value
 
         self._ros2_interface_writer = ROS2InterfaceWriter()
         self._ros2_interface_reader = ROS2InterfaceReader()
         
         self.sub_node = rclpy.create_node('sub_node')
 
-        self._take_off_client = TakeOffActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback)
-        self._land_client = LandActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback)
-        self._fly_client = FlyActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback)
+        self._take_off_client = TakeOffActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        self._land_client = LandActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        self._fly_client = FlyActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        self._inspect_client=InspectActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        
         self._current_action_client = None
-        self._inspect_client=InspectActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback)
 
         self._plan_pddl_one_shot_client = ActionClient(
             self, 
@@ -83,7 +95,7 @@ class PlanExecutorNode(Node):
         self._replan = self.sub_node.create_service(
             Replan, 'upf4ros2/srv/replan', self.replan)
         
-        self.mission_action_server=ActionServer(self,Mission,'mission',self.execute_callback)
+        self.mission_action_server = ActionServer(self,Mission,'mission',self.mission_callback)
     
     # can be used to test for deadlocks -> remove this later
     def timer_callback(self):
@@ -127,7 +139,6 @@ class PlanExecutorNode(Node):
         # maps identifiers of action parameters to their concrete instance
         # e.g. x : myuav, y : urbanArea, z : home
         paramMap = {action.parameters[i].name : parameters[i]  for i in range(len(parameters))}
-
         # loop through all effects of the action and update the initial state of the problem accordingly
         for effect in action.effects:
             fluent = effect.fluent.fluent()
@@ -147,9 +158,10 @@ class PlanExecutorNode(Node):
         upf_goal = msgs.Goal()
         upf_goal.goal = self._ros2_interface_writer.convert(goal)
         srv.goal.append(upf_goal)
-        #test = RosMsgConverter.message_to_ordereddict(srv)
-        #with open('result.json', 'w') as fp:
-        #    json.dump(test, fp)
+        test = RosMsgConverter.message_to_ordereddict(srv)
+        with open('result.json', 'w') as fp:
+            json.dump(test, fp)
+        #self.get_logger().info("srv: " + str(srv))
         self._add_goal.wait_for_service()
         future = self._add_goal.call_async(srv)
         rclpy.spin_until_future_complete(self.sub_node, future)
@@ -203,9 +215,13 @@ class PlanExecutorNode(Node):
             action (_type_): _description_
             params (_type_): _description_
             result (_type_): _description_
-        """        
-        self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
-        self.update_initial_state(self._actions[action.action_name], params)
+        """
+        # TODO: replace magic number -> 4 is the code for successfully completed action in NavigateToPose action format, 5 for canceled action
+        if result == 4:
+            self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
+            self.update_initial_state(self._actions[action.action_name], params)
+        else:
+            self.get_logger().info("Canceled action: " + action.action_name+"("+", ".join(params)+")")
         # TODO: add error handling
 
     # TODO: add implementation
@@ -243,7 +259,7 @@ class PlanExecutorNode(Node):
             #return
             self._inspect_client.send_action_goal(action, params, action_finished_future)
         #test code -> delete later
-        #self.add_goal(self._fluents['landed'](self._objects['myuav']))
+        #self.add_goal(self._fluents['visited'](self._objects['myuav'],self._objects['waters1']))
 
         
     def replan(self, request, response):
@@ -259,44 +275,48 @@ class PlanExecutorNode(Node):
         self.get_logger().info("Replanning: ")
         # cancel current action
         if self._current_action_client != None:
-            # TODO: add error handling
+            # TODO: make this call blocking
             self._current_action_client.cancel_action_goal()
             self.get_logger().info("Successfully canceled actions")
         # get new plan
         self._plan = request.plan_result.plan.actions
-        self.get_logger().info("New plan: " + str(self._plan))
+        self.get_logger().info("New plan: ")
+        for action in self._plan:
+            params = [x.symbol_atom[0] for x in action.parameters]
+            self.get_logger().info("action: " + action.action_name+"("+", ".join(params)+")") 
+        
         # start new plan -> don't call execute plan here (called in main loop instead)
         self._current_action_future.set_result("Finished")
         response.success = True
         return response
         
-    def execute_callback(self,goal_handle):
-        self.get_logger().info(f'In execute callback {goal_handle.request.init_status}')
+    def mission_callback(self,goal_handle):
+        self.get_logger().info(f'In mission callback {goal_handle.request.init_status}')
         #self.get_plan_srv()
-        self.launch_every()
+        self.launch_mission()
         goal_handle.succeed()
-        result=Mission.Result()
-        result.final_status=[0,1,0,0]
+        result = Mission.Result()
+        result.final_status = [0,1,0,0]
         return result
 
-    def launch_every(self):
-        ste = SingleThreadedExecutor()
+    def launch_mission(self):
+        mte = MultiThreadedExecutor()
         self.get_plan_srv()
-        plan_finished_future = Future(executor=ste)
+        plan_finished_future = Future(executor = mte)
         while plan_finished_future.done() == False:
-            action_finished_future = Future(executor=ste)
+            action_finished_future = Future(executor = mte)
             self.execute_plan(action_finished_future,plan_finished_future)
             #if len(self._plan) == 0:
                 #break
-            rclpy.spin_until_future_complete(self.sub_node,action_finished_future,ste)
+            rclpy.spin_until_future_complete(self.sub_node,action_finished_future,mte)
         #rclpy.spin(self)
-
 
 def main(args=None):
     rclpy.init(args=args)
     plan_executor_node = PlanExecutorNode()
-    plan_executor_node.launch_every()
+    plan_executor_node.launch_mission()
     rclpy.spin(plan_executor_node)
+    
     plan_executor_node.destroy_node()
     rclpy.shutdown()
 
