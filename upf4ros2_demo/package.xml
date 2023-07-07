@@ -4,7 +4,7 @@
   <name>upf4ros2_demo</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="igonzf06@estudiantes.unileon.es">gentlebots</maintainer>
+  <maintainer email="oliver.kraus@unibw.de"></maintainer>
   <license>Apache License, Version 2.0</license>
 
   <depend>rclpy</depend>
