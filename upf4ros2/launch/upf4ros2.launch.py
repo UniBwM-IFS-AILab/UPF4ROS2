@@ -17,9 +17,13 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-
+    drone_count = 3
     upf4ros2_cmd = Node(package='upf4ros2',
                         executable='upf4ros2_main',
+                        parameters=[
+                        {'drone_count': drone_count}
+                        ],
+                        emulate_tty=True,
                         output='screen')
 
     ld = LaunchDescription()

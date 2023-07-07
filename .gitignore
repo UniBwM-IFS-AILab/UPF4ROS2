@@ -3,3 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+build/*
+log/*
+install*
+.vscode*
+

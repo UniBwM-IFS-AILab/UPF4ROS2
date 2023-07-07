@@ -71,9 +71,16 @@ class UPF4ROS2Node(Node):
             PlanOneShot,
             'upf4ros2/action/planOneShot',
             self.plan_one_shot_callback)
-
-        self._replan_client = self.create_client(
-            Replan, 'upf4ros2/srv/replan')
+        
+        self.declare_parameter('drone_count', rclpy.Parameter.Type.INTEGER)
+        self._drone_count = self.get_parameter('drone_count').get_parameter_value().integer_value
+        self._replan_clients = {}
+        for i in range(0,self._drone_count):
+            vhcl_id = 'vhcl' + str(i) + '/'
+            client_name = 'upf4ros2/srv/' + vhcl_id + 'replan'
+            currClient = self.create_client(Replan, client_name)
+            self._replan_clients[vhcl_id] = currClient
+            
         self._get_problem = self.create_service(
             GetProblem, 'upf4ros2/srv/get_problem', self.get_problem)
         self._new_problem = self.create_service(
@@ -175,21 +182,22 @@ class UPF4ROS2Node(Node):
         return response
 
     def add_goal(self, request, response):
+        self.get_logger().info("In Add Goal")
         if request.problem_name not in self.problems:
             response.success = False
             response.message = f'Problem {request.problem_name} does not exist'
         else:
             problem = self.problems[request.problem_name]
-
+            self.get_logger().info("drone id: " + request.drone_id)
             if len(request.goal) > 0:
                 goal = self._ros2_interface_reader.convert(request.goal[0].goal, problem)
                 problem.add_goal(goal)
-                self.replan(request.problem_name)
+                self.replan(request.problem_name, request.drone_id)
                 response.success = True
             elif len(request.goal_with_cost) > 0:
                 goal = self._ros2_interface_reader.convert(request.goal_with_cost[0].goal, problem)
                 problem.add_goal(goal)
-                self.replan(request.problem_name)
+                self.replan(request.problem_name, request.drone_id)
                 response.success = True
             else:
                 response.success = False
@@ -306,10 +314,12 @@ class UPF4ROS2Node(Node):
             result.message = ''
             return result
     
-    def replan(self, problem_name):
+    def replan(self, problem_name, drone_id):
         self.get_logger().info("Replanning...")
         upf_problem = self.problems[problem_name]
         generatedPlan = None
+        replanClient = self._replan_clients[drone_id]
+        
         self.get_logger().info("Current problem: " + str(upf_problem))
         with OneshotPlanner(problem_kind=upf_problem.kind) as planner:
             result = planner.solve(upf_problem)
@@ -320,7 +330,7 @@ class UPF4ROS2Node(Node):
         if generatedPlan != None:
             srv = Replan.Request()
             srv.plan_result.plan = generatedPlan.plan
-            self.future = self._replan_client.call_async(srv)
+            self.future = replanClient.call_async(srv)
 
 def main(args=None):
     rclpy.init(args=args)

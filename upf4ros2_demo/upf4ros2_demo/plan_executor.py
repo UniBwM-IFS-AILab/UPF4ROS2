@@ -5,7 +5,6 @@ from rclpy.task import Future
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rosidl_runtime_py import convert as RosMsgConverter
-from rclpy.executors import SingleThreadedExecutor
 from rclpy.executors import MultiThreadedExecutor
 
 from ament_index_python.packages import get_package_share_directory
@@ -79,23 +78,19 @@ class PlanExecutorNode(Node):
         
         self._current_action_client = None
 
-        self._plan_pddl_one_shot_client = ActionClient(
-            self, 
-            PDDLPlanOneShot, 
-            'upf4ros2/action/planOneShotPDDL')
+        self._plan_pddl_one_shot_client = ActionClient(self, PDDLPlanOneShot, 'upf4ros2/action/planOneShotPDDL')
         
-        self._get_problem = self.sub_node.create_client(
-            GetProblem, 'upf4ros2/srv/get_problem')
-        #self._add_goal = self.create_client(
-        #    AddGoal, 'upf4ros2/srv/add_goal')
-        self._set_initial_value = self.sub_node.create_client(
-            SetInitialValue, 'upf4ros2/srv/set_initial_value')
-        self._plan_pddl_one_shot_client_srv = self.sub_node.create_client(
-            PDDLPlanOneShotSrv, 'upf4ros2/srv/planOneShotPDDL')
-        self._replan = self.sub_node.create_service(
-            Replan, 'upf4ros2/srv/replan', self.replan)
+        self._get_problem = self.sub_node.create_client(GetProblem, 'upf4ros2/srv/get_problem')
+        #self._add_goal = self.create_client(AddGoal, 'upf4ros2/srv/add_goal')
+        self._set_initial_value = self.sub_node.create_client(SetInitialValue, 'upf4ros2/srv/set_initial_value')
+        self._plan_pddl_one_shot_client_srv = self.sub_node.create_client(PDDLPlanOneShotSrv, 'upf4ros2/srv/planOneShotPDDL')
+        
+        replan_server_name = 'upf4ros2/srv/' + self._drone_prefix + 'replan'
+        self._replan = self.create_service(Replan, replan_server_name, self.replan)
         
         self.mission_action_server = ActionServer(self,Mission,'mission',self.mission_callback)
+        
+        
     
     # can be used to test for deadlocks -> remove this later
     def timer_callback(self):
@@ -158,6 +153,7 @@ class PlanExecutorNode(Node):
         upf_goal = msgs.Goal()
         upf_goal.goal = self._ros2_interface_writer.convert(goal)
         srv.goal.append(upf_goal)
+        srv.drone_id = self._drone_prefix
         test = RosMsgConverter.message_to_ordereddict(srv)
         with open('result.json', 'w') as fp:
             json.dump(test, fp)

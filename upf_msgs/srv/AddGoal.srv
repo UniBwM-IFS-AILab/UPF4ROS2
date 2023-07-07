@@ -1,4 +1,5 @@
 string problem_name
+string drone_id
 upf_msgs/Goal[<=1] goal
 upf_msgs/GoalWithCost[<=1] goal_with_cost
 ---
