@@ -1,36 +1,30 @@
 from qgis.gui import *
 from qgis.core import *
-#from qgis.PyQt.QtCore import Qt
 from PyQt5.QtCore import *
 from qgis.PyQt.QtWidgets import QAction, QMainWindow
-import sys
-import os
 import pandas as pd
 import datetime
-#sys.path=['']+sys.path
+
 from rclpy.node import Node
 import rclpy
 from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
 from threading import Thread
 
-from px4_msgs.msg import OffboardControlMode
-from px4_msgs.msg import TrajectorySetpoint
-from px4_msgs.msg import VehicleStatus
-from px4_msgs.msg import VehicleLocalPosition
 from px4_msgs.msg import VehicleGlobalPosition
-from std_msgs.msg import String
 
 
 def add_layer_toproject(layer,namety):
     if not layer.isValid():
         print(f"{namety} Layer failed to load!")
-        #node.get_logger().info("Not ok load")
     else:
         QgsProject.instance().addMapLayer(layer)
-        #node.get_logger().info("ok load")
 
 def gen_lidarlayer():
-    lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/layers_custom/PTS_LAMB93_IGN69_0925_6326.las","lidar", "pdal")
+    #lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/layers_custom/PTS_LAMB93_IGN69_0925_6326.las","lidar", "pdal")
+    lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/layers_custom/dom04_714_5323_1_by.las","lidar", "pdal")
+    crs = lidar_layer.crs()
+    crs.createFromId(25832) 
+    lidar_layer.setCrs(crs)
     return lidar_layer
 
 def gen_zonelayer():
@@ -58,15 +52,7 @@ def gen_dronelayer():
                     QgsField("X",  QVariant.Int),
                     QgsField("Y",  QVariant.Int),
                    QgsField("date",QVariant.DateTime) ] ) 
-    data_sim=pd.read_csv("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/data/testdataPosi.csv")
-    select_d1=data_sim.loc[data_sim['drone'] == 'd1']
-    for index,row in select_d1.iterrows():
-        formatted = datetime.datetime.strptime(row["datetime"],'%Y-%m-%d %H:%M:%S.%f')
-        newdatebis=QDateTime(formatted.year, formatted.month, formatted.day, formatted.hour, formatted.minute, formatted.second)
-        fet = QgsFeature()
-        fet.setAttributes([row['drone'],row['x'],row['y'],newdatebis])
-        fet.setGeometry( QgsGeometry.fromPointXY(QgsPointXY(row['x'],row['y'])) )
-        pr.addFeatures( [ fet ] )               
+    drone_layers.updateFields()              
     drone_layers.commitChanges()
     tempo_vl=drone_layers.temporalProperties()
     tempo_vl.setIsActive(True)
@@ -88,22 +74,6 @@ def gen_pathlayer():
                     QgsField("Y2",  QVariant.Int),
                    QgsField("date2",QVariant.DateTime) ] )
     path_layers.updateFields() 
-    data_sim=pd.read_csv("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/data/testdataPosi.csv")
-    select_d1=data_sim.loc[data_sim['drone'] == 'd1']
-    select_d1.sort_values(by='datetime', inplace = True)
-    start_row=0
-    nb_row=select_d1.shape[0]
-    for i in range(start_row,select_d1.shape[0]-1):
-        starpoint=select_d1.iloc[i]
-        endpoint=select_d1.iloc[i+1]
-        formatted_start = datetime.datetime.strptime(starpoint["datetime"],'%Y-%m-%d %H:%M:%S.%f')
-        formatted_end = datetime.datetime.strptime(endpoint["datetime"],'%Y-%m-%d %H:%M:%S.%f')
-        datestart=QDateTime(formatted_start.year, formatted_start.month, formatted_start.day, formatted_start.hour, formatted_start.minute, formatted_start.second)
-        dateend=QDateTime(formatted_end.year, formatted_end.month, formatted_end.day, formatted_end.hour, formatted_end.minute, formatted_end.second)
-        fet = QgsFeature()
-        fet.setGeometry(QgsGeometry.fromPolylineXY([QgsPointXY(starpoint['x'],starpoint['y']), QgsPointXY(endpoint['x'],endpoint['y'])]))
-        fet.setAttributes([starpoint['drone'], starpoint['x'], starpoint['y'], datestart, endpoint['x'], endpoint['y'], dateend])
-        path_layers.addFeature(fet)
     path_layers.commitChanges()
     tempo_vl=path_layers.temporalProperties()
     tempo_vl.setIsActive(True)
@@ -116,39 +86,38 @@ def gen_pathlayer():
 
 class CollectorNode(Node):
 
-    def __init__(self):
+    def __init__(self,n_drones):
         super().__init__('qgis_gui')
-        self.local_pos_sub = self.create_subscription(VehicleGlobalPosition,'/fmu/vehicle_global_position/out', self.listener_callback_pos,10)
-        self.oldtime=0
+        self.drone_num_to_timestamp={i:0  for i in range(n_drones)}
+        self.drone_num_to_sub_drone_pos = {i:self.create_subscription(VehicleGlobalPosition,f'vhcl{i}/fmu/vehicle_global_position/out', self.make_listener_callback_pos(i),10)  for i in range(n_drones)}
+        self.drone_num_to_df={i:pd.DataFrame([],columns=["drone","x","y","datetime"])  for i in range(n_drones)} #avoid possible append at the same time
         self.df=pd.DataFrame([],columns=["drone","x","y","datetime"])
-        self.local_pos_sub
-        # self.subscri = self.create_subscription(String,'topic', self.listener_callback,10)
-        # self.subscri
-        
-        
-    def listener_callback_pos(self, msg):
-        if msg.timestamp-self.oldtime>5000000: #10 second: 10000000:
-            current_time=datetime.datetime.now()
-            self.df.loc[len(self.df.index)]=["d1",msg.lon,msg.lat,str(current_time)]
-            self.oldtime=msg.timestamp
-            self.get_logger().info(f"{self.df}")
-            self.get_logger().info(f"{msg.timestamp}")
-            self.get_logger().info(f"Longitude:{msg.lon},Latitude:{msg.lat}")
 
-    # def listener_callback(self,msg):
-        # self.get_logger().info(f"I heard: {msg.data}")
+        
+    
+    def make_listener_callback_pos(self, ind):
+        def callback(msg):
+            if msg.timestamp-self.drone_num_to_timestamp[ind]>5000000: #10 second: 10000000:
+                current_time=datetime.datetime.now()
+                current_df=self.drone_num_to_df[ind]
+                current_df.loc[len(self.df.index)]=[f"d{ind}",msg.lon,msg.lat,str(current_time)]
+                self.df.loc[len(self.df.index)]=[f"d{ind}",msg.lon,msg.lat,str(current_time)]
+                self.drone_num_to_timestamp[ind]=msg.timestamp
+                self.get_logger().info(f"d{ind}: Longitude:{msg.lon},Latitude:{msg.lat}")
+        return callback
  
  
                
 class CustomWind(QMainWindow):
-    def __init__(self,layers):
+    def __init__(self,layers, n_drones):
         QMainWindow.__init__(self)
         self.canvas = QgsMapCanvas()
         self.temporal_controller_widg = QgsTemporalControllerWidget()
         self.canvas.setTemporalController(self.temporal_controller_widg.temporalController())
         
+        self.n_drones=n_drones
         self.executor=SingleThreadedExecutor()
-        self.node=CollectorNode()#Node("qt_gui")#CollectorNode()
+        self.node=CollectorNode(n_drones)
         self.executor.add_node(self.node)
         
         
@@ -188,7 +157,8 @@ class CustomWind(QMainWindow):
         self.toolPan.setAction(self.actionShowlayerbis)
         
         
-        self.current_data_index=0#-1
+        self.drone_num_to_current_data_index={i:0 for i in range(self.n_drones)}
+        self.drone_num_to_previousRow={i:pd.DataFrame() for i in range(self.n_drones)}
         self.actionPushButbis.setText("Refresh Data")
         self.timer = QTimer()
         self.timer.timeout.connect(self.refresh)
@@ -211,43 +181,31 @@ class CustomWind(QMainWindow):
     
     
     def refresh(self):
-        # data_sim=pd.read_csv("/home/companion/PlanSys/testdataPosi.csv")
-        # select_d1=data_sim.loc[data_sim['drone'] == 'd1']
-        select_d1=self.node.df.loc[self.node.df['drone'] == 'd1']
         drone_lay=self.layers[0]
-        drone_lay.dataProvider().addAttributes( [ QgsField("drone", QVariant.String),
-                        QgsField("X",  QVariant.Int),
-                        QgsField("Y",  QVariant.Int),
-                       QgsField("date",QVariant.DateTime) ] ) 
         path_lay=self.layers[1]
-        path_lay.dataProvider().addAttributes( [ QgsField("drone", QVariant.String),
-                    QgsField("X1",  QVariant.Int),
-                    QgsField("Y1",  QVariant.Int),
-                    QgsField("date1",QVariant.DateTime),
-                    QgsField("X2",  QVariant.Int),
-                    QgsField("Y2",  QVariant.Int),
-                   QgsField("date2",QVariant.DateTime) ] )
-        
         drone_lay.startEditing()
-        path_lay.startEditing()
-        select_d1.sort_values(by='datetime', inplace = True)
-        for i in range(self.current_data_index,select_d1.shape[0]-1):
-            starpoint=select_d1.iloc[i]
-            endpoint=select_d1.iloc[i+1]
-            formatted_start = datetime.datetime.strptime(starpoint["datetime"],'%Y-%m-%d %H:%M:%S.%f')
-            formatted_end = datetime.datetime.strptime(endpoint["datetime"],'%Y-%m-%d %H:%M:%S.%f')
-            datestart=QDateTime(formatted_start.year, formatted_start.month, formatted_start.day, formatted_start.hour, formatted_start.minute, formatted_start.second)
-            dateend=QDateTime(formatted_end.year, formatted_end.month, formatted_end.day, formatted_end.hour, formatted_end.minute, formatted_end.second)
-            #self.node.get_logger().info(f"{dateend}")
-            fet = QgsFeature()
-            fet.setGeometry(QgsGeometry.fromPolylineXY([QgsPointXY(starpoint['x'],starpoint['y']), QgsPointXY(endpoint['x'],endpoint['y'])]))
-            fet.setAttributes([starpoint['drone'], starpoint['x'], starpoint['y'], datestart, endpoint['x'], endpoint['y'], dateend])
-            path_lay.addFeature(fet)
-            fet = QgsFeature()
-            fet.setAttributes([endpoint['drone'],endpoint['x'],endpoint['y'],dateend])
-            fet.setGeometry( QgsGeometry.fromPointXY(QgsPointXY(endpoint['x'],endpoint['y'])) )
-            drone_lay.addFeature(fet)
-        self.current_data_index=select_d1.shape[0]-2
+        path_lay.startEditing() 
+        for drone_num in range(self.n_drones):
+            current_drone_df=self.node.drone_num_to_df[drone_num]
+            current_drone_df.sort_values(by='datetime', inplace = True)
+            tmpsubdf=current_drone_df.iloc[self.drone_num_to_current_data_index[drone_num]:]
+            for index,row in tmpsubdf.iterrows():
+                formatted = datetime.datetime.strptime(row["datetime"],'%Y-%m-%d %H:%M:%S.%f')
+                newdatebis=QDateTime(formatted.year, formatted.month, formatted.day, formatted.hour, formatted.minute, formatted.second)
+                fet = QgsFeature()
+                fet.setAttributes([row['drone'],row['x'],row['y'],newdatebis])
+                fet.setGeometry( QgsGeometry.fromPointXY(QgsPointXY(row['x'],row['y'])) )
+                drone_lay.addFeature(fet)
+                if not self.drone_num_to_previousRow[drone_num].empty:
+                    drone_previous_row=self.drone_num_to_previousRow[drone_num]
+                    formatted_prev = datetime.datetime.strptime(drone_previous_row["datetime"],'%Y-%m-%d %H:%M:%S.%f')
+                    prevdate=QDateTime(formatted.year, formatted.month, formatted.day, formatted.hour, formatted.minute, formatted.second)
+                    fet = QgsFeature()
+                    fet.setGeometry(QgsGeometry.fromPolylineXY([QgsPointXY(drone_previous_row['x'],drone_previous_row['y']), QgsPointXY(row['x'],row['y'])]))
+                    fet.setAttributes([drone_previous_row['drone'], drone_previous_row['x'], drone_previous_row['y'], prevdate, row['x'], row['y'], newdatebis])
+                    path_lay.addFeature(fet)
+                self.drone_num_to_previousRow[drone_num]=row
+                self.drone_num_to_current_data_index[drone_num]+=1
         path_lay.commitChanges()
         drone_lay.commitChanges()
         self.timer.start(15001)
@@ -286,18 +244,18 @@ def main(args=None):
     qgs=QgsApplication([],False)
     qgs.initQgis()
     
-    #lidar_layer_out=gen_lidarlayer()
-    zone_layer_out=gen_zonelayer()
+    lidar_layer_out=gen_lidarlayer()
+    #zone_layer_out=gen_zonelayer()
     drone_layer_out=gen_dronelayer()
     path_layer_out=gen_pathlayer()
 
 
-    #add_layer_toproject(lidar_layer_out,"Cloud")
-    add_layer_toproject(zone_layer_out,"Vectorzone")
+    add_layer_toproject(lidar_layer_out,"Cloud")
+    #add_layer_toproject(zone_layer_out,"Vectorzone")
     add_layer_toproject(path_layer_out,"VectorLine")
     add_layer_toproject(drone_layer_out,"VectorPoint")
     
-    cuswin=CustomWind([drone_layer_out,path_layer_out,zone_layer_out])
+    cuswin=CustomWind([drone_layer_out,path_layer_out,lidar_layer_out],3)
     cuswin.thread.start()
     cuswin.show()
 
