@@ -47,6 +47,7 @@ def gen_zonelayer():
 
 def gen_dronelayer():
     drone_layers = QgsVectorLayer("Point?crs=EPSG:4326", "temporary_points", "memory")
+    drone_layers.loadNamedStyle('/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/style/drones.qml')
     pr = drone_layers.dataProvider()
     pr.addAttributes( [ QgsField("drone", QVariant.String),
                     QgsField("X",  QVariant.Int),
