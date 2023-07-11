@@ -16,7 +16,7 @@ class FlyActionClient(CustomActionClient):
         with open(lookupTablePath) as file:
             self._lookupTable = json.load(file)
         # set initial home coordinates; overwrite later
-        self._lookupTable['home'] = [0,0,0]
+        #self._lookupTable['home'] = [0,0,0]
         self.action_name="Fly"
     
     

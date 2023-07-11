@@ -86,7 +86,7 @@ class PlanExecutorNode(Node):
         self._plan_pddl_one_shot_client_srv = self.sub_node.create_client(PDDLPlanOneShotSrv, 'upf4ros2/srv/planOneShotPDDL')
         
         replan_server_name = 'upf4ros2/srv/' + self._drone_prefix + 'replan'
-        self._replan = self.create_service(Replan, replan_server_name, self.replan)
+        self._replan = self.sub_node.create_service(Replan, replan_server_name, self.replan)
         
         self.mission_action_server = ActionServer(self,Mission,'mission',self.mission_callback)
         
