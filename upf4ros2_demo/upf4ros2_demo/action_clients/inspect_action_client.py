@@ -5,10 +5,17 @@ from geometry_msgs.msg import Pose
 
 
 class InspectActionClient(CustomActionClient):
+    """
+    <summary>
+    
+    :param Node node: <description>
+    :param Callable feedback_callback: <description>
+    :param Callable result_callback: <description>
+    :param string drone_prefix: <description>
+    """
 
     def __init__(self, node, feedback_callback, result_callback, drone_prefix):
-        # we should rename the action to inspect (not navigate_to_pose)
-        action_name = drone_prefix + "navigate_to_pose"
+        action_name = drone_prefix + "inspect"
         super().__init__(node, feedback_callback, result_callback, action_name)
         lookupTablePath = (get_package_share_directory('upf4ros2_demo')
                                 + str('/params/lookupTable.json'))
@@ -16,7 +23,7 @@ class InspectActionClient(CustomActionClient):
         with open(lookupTablePath) as file:
             self._lookupTable = json.load(file)
         # set initial home coordinates; overwrite later
-        self._lookupTable['home'] = [0,0,0]
+        #self._lookupTable['home'] = [0,0,0]
     
     
     def create_goalmsg(self, goal_msg):

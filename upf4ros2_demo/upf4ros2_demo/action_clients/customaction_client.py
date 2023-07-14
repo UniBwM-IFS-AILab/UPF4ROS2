@@ -6,8 +6,18 @@ from threading import Event
 from rclpy.callback_groups import ReentrantCallbackGroup
 
 class CustomActionClient:
-
+    """
+    Template class used to create an action
+    
+    :param Node node: <description>
+    :param Callable feedback_callback: <description>
+    :param Callable result_callback: <description>
+    :param string ros_action_name: <description>
+    """
     def __init__(self, node, feedback_callback, result_callback, ros_action_name):
+        """
+        Constructor method
+        """
         self.action_name = ''
         self.logger = logging.get_logger(self.__class__.__name__) #self.__class__.__name__ otherwise __class__.__name__ print CustomActionClient
         self.callback_group = ReentrantCallbackGroup()
@@ -21,6 +31,13 @@ class CustomActionClient:
         self.future_handle = None
         
     def send_action_goal(self, actionInstance, params, future):
+        """
+        <summary>
+        
+        :param <type> actionInstance: <description>
+        :param <type> params: <description>
+        :param Future future: <description>
+        """
         self.logger.info(f"Starting action '{self.action_name}'")
         self._action = actionInstance
         self._params = params
@@ -35,10 +52,24 @@ class CustomActionClient:
 
 
     def create_goalmsg(self, goal_msg):
+        """
+        <summary>
+        
+        :param NavigateToPose goal_msg: <description>
+        
+        :returns: goal_msg: <description>
+        :rtype: NavigateToPose
+        """
         return goal_msg
 
         
     def goal_response_callback(self, future):
+        """
+        <summary>
+        
+        :param Future future: <description>
+        
+        """
         self._goal_handle = future.result()
         if not self._goal_handle.accepted:
             self.logger.info('Error! Goal rejected')
@@ -47,6 +78,12 @@ class CustomActionClient:
         self._get_result_future.add_done_callback(self.get_result_callback)
         
     def get_result_callback(self, future):
+        """
+        <summary>
+        
+        :param Future future: <description>
+        
+        """
         self.result_callback(self._action, self._params, future.result().status)
         status = future.result().status
         # TODO: replace magic number -> 4 is the code for successfully completed action in NavigateToPose action format, 5 for canceled action
@@ -54,6 +91,10 @@ class CustomActionClient:
             self.future_handle.set_result("Finished")
 
     def cancel_action_goal(self):
+        """
+        <summary> 
+        
+        """
         self.logger.info('Cancelling goal')
         try:
             self._goal_handle.cancel_goal()

@@ -14,12 +14,16 @@ from px4_msgs.msg import VehicleGlobalPosition
 
 
 def add_layer_toproject(layer,namety):
+    """
+    """
     if not layer.isValid():
         print(f"{namety} Layer failed to load!")
     else:
         QgsProject.instance().addMapLayer(layer)
 
 def gen_lidarlayer():
+    """
+    """
     #lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/layers_custom/PTS_LAMB93_IGN69_0925_6326.las","lidar", "pdal")
     lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/layers_custom/dom04_714_5323_1_by.las","lidar", "pdal")
     crs = lidar_layer.crs()
@@ -28,7 +32,8 @@ def gen_lidarlayer():
     return lidar_layer
 
 def gen_zonelayer():
-
+    """
+    """
     zone_layer=QgsVectorLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/layers_custom/testzone.shp","monitoringZone", "ogr")
     zone_layer.loadNamedStyle('/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/style/zoneProbaGradua.qml')
     features=zone_layer.getFeatures()
@@ -46,6 +51,8 @@ def gen_zonelayer():
 
 
 def gen_dronelayer():
+    """
+    """
     drone_layers = QgsVectorLayer("Point?crs=EPSG:4326", "temporary_points", "memory")
     drone_layers.loadNamedStyle('/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/style/drones.qml')
     pr = drone_layers.dataProvider()
@@ -63,6 +70,8 @@ def gen_dronelayer():
  
 
 def gen_pathlayer():
+    """
+    """
     path_layers = QgsVectorLayer("LineString?crs=EPSG:4326", "temporary_lines", "memory")
     path_layers.loadNamedStyle('/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/style/arrowline.qml')
     pr = path_layers.dataProvider()
@@ -86,8 +95,16 @@ def gen_pathlayer():
 
 
 class CollectorNode(Node):
+    """
+    ROS2 node used to collect the position of uav at a regular interval during the simulatiion
+    
+    :param int n_drones: Number of drone in the current simulation
+    
+    """
 
     def __init__(self,n_drones):
+        """
+        """
         super().__init__('qgis_gui')
         self.drone_num_to_timestamp={i:0  for i in range(n_drones)}
         self.drone_num_to_sub_drone_pos = {i:self.create_subscription(VehicleGlobalPosition,f'vhcl{i}/fmu/vehicle_global_position/out', self.make_listener_callback_pos(i),10)  for i in range(n_drones)}
@@ -97,7 +114,14 @@ class CollectorNode(Node):
         
     
     def make_listener_callback_pos(self, ind):
+        """
+        Create a different callback function to subscribe to the topic of UAV position
+        
+        :param int ind: Index of a drone
+        """
         def callback(msg):
+            """
+            """
             if msg.timestamp-self.drone_num_to_timestamp[ind]>5000000: #10 second: 10000000:
                 current_time=datetime.datetime.now()
                 current_df=self.drone_num_to_df[ind]
@@ -110,7 +134,17 @@ class CollectorNode(Node):
  
                
 class CustomWind(QMainWindow):
+    """
+    QT window using Qgis used to represent the map and drone progression during the simulation
+    
+    :param list of QgsMapLayer layers: list of layer used with the first two being the drones and path layers
+    :param int n_drones: Number of drone in the current simulation
+    
+    """
     def __init__(self,layers, n_drones):
+        """
+        Constructor method
+        """
         QMainWindow.__init__(self)
         self.canvas = QgsMapCanvas()
         self.temporal_controller_widg = QgsTemporalControllerWidget()
@@ -147,13 +181,13 @@ class CustomWind(QMainWindow):
         
         self.actionShowlayer = QAction("Hide Drone", self)
         self.actionShowlayer.setCheckable(True)
-        self.actionShowlayer.triggered.connect(self.show_hide)
+        self.actionShowlayer.triggered.connect(self.show_hide_drones)
         self.toolbar.addAction(self.actionShowlayer)
         self.toolPan.setAction(self.actionShowlayer)
         
         self.actionShowlayerbis = QAction("Hide Path", self)
         self.actionShowlayerbis.setCheckable(True)
-        self.actionShowlayerbis.triggered.connect(self.show_hidebis)
+        self.actionShowlayerbis.triggered.connect(self.show_hide_path)
         self.toolbar.addAction(self.actionShowlayerbis)
         self.toolPan.setAction(self.actionShowlayerbis)
         
@@ -168,6 +202,11 @@ class CustomWind(QMainWindow):
     
     
     def del_push(self):
+        """
+        Button, function used to deleted all the data 
+        about the current drone and path layers
+        
+        """
         drone_lay=self.layers[0]
         drone_lay.startEditing()
         for feat in drone_lay.getFeatures():
@@ -182,6 +221,11 @@ class CustomWind(QMainWindow):
     
     
     def refresh(self):
+        """
+        Button function used to refresh the data on the drone and path layer
+        Will be executed automatically 15 seconds after last used
+        
+        """
         drone_lay=self.layers[0]
         path_lay=self.layers[1]
         drone_lay.startEditing()
@@ -212,7 +256,10 @@ class CustomWind(QMainWindow):
         self.timer.start(15001)
         return 0
     
-    def show_hide( self, checked ):
+    def show_hide_drones( self, checked ):
+        """
+        Button function to either show or hide the drones
+        """
         print(QgsProject.instance().layerTreeRoot().findLayer(self.layers[0]))
         button_layer=self.layers[0]
         if not checked:
@@ -225,7 +272,10 @@ class CustomWind(QMainWindow):
             tmp_layers.remove(self.layers[0])
             self.canvas.setLayers(tmp_layers)
             
-    def show_hidebis( self, checked ):
+    def show_hide_path( self, checked ):
+        """
+        Button function to either show or hide the path
+        """
         print(QgsProject.instance().layerTreeRoot().findLayer(self.layers[1]))
         button_layer=self.layers[1]
         if not checked:
@@ -240,6 +290,8 @@ class CustomWind(QMainWindow):
        
 
 def main(args=None):
+    """
+    """
     rclpy.init()
     QgsApplication.setPrefixPath("/usr/", True)
     qgs=QgsApplication([],False)
