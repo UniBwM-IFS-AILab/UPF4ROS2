@@ -15,8 +15,8 @@ def generate_launch_description():
 
     upf4ros2_demo_cmd = Node(
         package=pkg_name,
-        executable="roswrap",
-        name="sg_roswrap",
+        executable="manager",
+        name="mission_manager",
         output='screen')
 
     ld = LaunchDescription()
