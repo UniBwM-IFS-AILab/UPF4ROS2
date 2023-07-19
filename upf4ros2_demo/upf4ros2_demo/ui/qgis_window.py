@@ -24,8 +24,8 @@ def add_layer_toproject(layer,namety):
 def gen_lidarlayer():
     """
     """
-    lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/ui/layers_custom/PTS_LAMB93_IGN69_0925_6326.las","lidar", "pdal")
-    # lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/ui/layers_custom/dom04_714_5323_1_by.las","lidar", "pdal")
+    lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/ui/layer_custom/PTS_LAMB93_IGN69_0925_6326.las","lidar", "pdal")
+    # lidar_layer=QgsPointCloudLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/ui/layer_custom/dom04_714_5323_1_by.las","lidar", "pdal")
     # crs = lidar_layer.crs()
     # crs.createFromId(25832) 
     # lidar_layer.setCrs(crs)
@@ -34,7 +34,7 @@ def gen_lidarlayer():
 def gen_zonelayer():
     """
     """
-    zone_layer=QgsVectorLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/ui/layers_custom/testzone.shp","monitoringZone", "ogr")
+    zone_layer=QgsVectorLayer("/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/ui/layer_custom/testzone.shp","monitoringZone", "ogr")
     zone_layer.loadNamedStyle('/home/companion/PlanSys/src/UPF4ROS2/upf4ros2_demo/upf4ros2_demo/ui/style/zoneProbaGradua.qml')
     features=zone_layer.getFeatures()
     layer_provider=zone_layer.dataProvider()
@@ -308,7 +308,7 @@ def main(args=None):
     add_layer_toproject(path_layer_out,"VectorLine")
     add_layer_toproject(drone_layer_out,"VectorPoint")
     
-    cuswin=CustomWind([drone_layer_out,path_layer_out,zone_layer_out,lidar_layer_out],3)
+    cuswin=CustomWind([drone_layer_out,path_layer_out,zone_layer_out,lidar_layer_out],2)
     cuswin.thread.start()
     cuswin.show()
 

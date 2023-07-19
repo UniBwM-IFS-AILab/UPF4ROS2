@@ -24,7 +24,7 @@ setup(
         'console_scripts': [
             'plan_executor = upf4ros2_demo.plan_executor:main',
             'manager = upf4ros2_demo.mission_manager:main',
-            'qgisqt = upf4ros2_demo.qgis_window:main',
+            'qgisqt = upf4ros2_demo.ui.qgis_window:main',
             'navigation_action_client = upf4ros2_demo.navigation_action_client:main',
         ],
     },

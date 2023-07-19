@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     pkg_name = "upf4ros2_demo"
     
-    drone_count = 3
+    drone_count = 2
     ld = LaunchDescription()
     for i in range(0,drone_count):
         plan_executor_node = Node(
@@ -12,7 +12,8 @@ def generate_launch_description():
             executable="plan_executor",
             name="plan_executor" + str(i),
             parameters=[
-                {'drone_prefix': 'vhcl'+ str(i) +'/'}
+                {'drone_prefix': 'vhcl'+ str(i) +'/'},
+                {'drone_id': i}
             ],
             emulate_tty=True,
             output='screen')

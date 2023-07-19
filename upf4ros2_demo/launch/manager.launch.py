@@ -13,6 +13,7 @@ def generate_launch_description():
     # NODES
     #
 
+    drone_count = 2
     upf4ros2_demo_cmd = Node(
         package=pkg_name,
         executable="manager",

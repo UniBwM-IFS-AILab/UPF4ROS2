@@ -15,7 +15,7 @@ class InspectActionClient(CustomActionClient):
     """
 
     def __init__(self, node, feedback_callback, result_callback, drone_prefix):
-        action_name = drone_prefix + "inspect"
+        action_name = drone_prefix + "navigate_to_pose"
         super().__init__(node, feedback_callback, result_callback, action_name)
         lookupTablePath = (get_package_share_directory('upf4ros2_demo')
                                 + str('/params/lookupTable.json'))
@@ -24,7 +24,7 @@ class InspectActionClient(CustomActionClient):
             self._lookupTable = json.load(file)
         # set initial home coordinates; overwrite later
         #self._lookupTable['home'] = [0,0,0]
-    
+        self.action_name="Inspect"
     
     def create_goalmsg(self, goal_msg):
         wp = self._action.parameters[1].symbol_atom[0]

@@ -17,7 +17,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    drone_count = 3
+    drone_count = 2
     upf4ros2_cmd = Node(package='upf4ros2',
                         executable='upf4ros2_main',
                         parameters=[

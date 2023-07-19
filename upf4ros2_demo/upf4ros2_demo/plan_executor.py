@@ -5,7 +5,7 @@ from rclpy.task import Future
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from rosidl_runtime_py import convert as RosMsgConverter
-from rclpy.executors import MultiThreadedExecutor
+from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -47,7 +47,7 @@ class PlanExecutorNode(Node):
         """
         super().__init__('plan_executor')
 
-        self._problem_name = 'uav_problem'
+        
         self._problem = None
         self._actions = {}
         self._objects = {}
@@ -55,18 +55,23 @@ class PlanExecutorNode(Node):
         self._plan = []
         self._current_action_future = None
         self._current_action_client = None
-
-        # Separate PDDL files for stochastic game
-        # self.declare_parameter('domain', '/pddl/monitor_domain_upf.pddl')
-        # self.declare_parameter('problem', '/pddl/monitorproblem_0.pddl')
-
-        self.declare_parameter('domain', '/pddl/uav_domain.pddl')
-        self.declare_parameter('problem', '/pddl/generated_uav_instance.pddl')
+        
         self.declare_parameter('drone_prefix', rclpy.Parameter.Type.STRING)
+        self.declare_parameter('drone_id',rclpy.Parameter.Type.INTEGER)
+        self._drone_id=self.get_parameter('drone_id').value#int(self.get_parameter('drone_id').get_parameter_value())
+        self._problem_name = f'uav_problem{self._drone_id}'
+        
+        # Separate PDDL files for stochastic game
+        self.declare_parameter('domain', '/pddl/monitor_domain_upf.pddl')
+        self.declare_parameter('problem', f'/pddl/monitorproblem_{self._drone_id}.pddl')
+        # self.declare_parameter('domain', '/pddl/uav_domain.pddl')
+        # self.declare_parameter('problem', '/pddl/generated_uav_instance.pddl')
+        
 
         self._domain = self.get_parameter('domain')
         self._problem = self.get_parameter('problem')
         self._drone_prefix = self.get_parameter('drone_prefix').get_parameter_value().string_value
+        
 
         self._ros2_interface_writer = ROS2InterfaceWriter()
         self._ros2_interface_reader = ROS2InterfaceReader()
@@ -89,7 +94,7 @@ class PlanExecutorNode(Node):
         replan_server_name = 'upf4ros2/srv/' + self._drone_prefix + 'replan'
         self._replan = self.sub_node.create_service(Replan, replan_server_name, self.replan)
         
-        self.mission_action_server = ActionServer(self,Mission,'mission',self.mission_callback)
+        self.mission_action_server = ActionServer(self,Mission, f'mission{self._drone_id}',self.mission_callback)
         
         
         
@@ -104,7 +109,6 @@ class PlanExecutorNode(Node):
         srv = SetInitialValue.Request()
         srv.problem_name = self._problem_name
         srv.expression = self._ros2_interface_writer.convert(fluent(*object))
-
         item = msgs.ExpressionItem()
         item.atom.append(msgs.Atom())
         item.atom[0].boolean_atom.append(value_fluent)
@@ -115,10 +119,10 @@ class PlanExecutorNode(Node):
         value.level.append(0)
 
         srv.value = value
-
         self._set_initial_value.wait_for_service()
         future = self._set_initial_value.call_async(srv)
         rclpy.spin_until_future_complete(self.sub_node, future)
+        
 
     def update_initial_state(self, action, parameters):
         """
@@ -237,7 +241,8 @@ class PlanExecutorNode(Node):
         _summary_
 
         
-        :param <type> future: <description>
+        :param Future action_finished_future: <description>
+        :param Future plan_finished_future: <description>
         """
         if len(self._plan) == 0:
             self.get_logger().info('Plan completed!')
@@ -262,6 +267,7 @@ class PlanExecutorNode(Node):
         else:
             self.get_logger().info("Error! Received invalid action name")
             self._inspect_client.send_action_goal(action, params, action_finished_future)
+            self._current_action_client = self._inspect_client
         #test code -> delete later
         #self.add_goal(self._fluents['visited'](self._objects['myuav'],self._objects['waters1']))
 
@@ -318,16 +324,16 @@ class PlanExecutorNode(Node):
         """
         mte = MultiThreadedExecutor()
         self.get_plan_srv()
-        plan_finished_future = Future(executor = mte)
+        plan_finished_future = Future()
         while plan_finished_future.done() == False:
-            action_finished_future = Future(executor = mte)
+            action_finished_future = Future()
             self.execute_plan(action_finished_future,plan_finished_future)
-            rclpy.spin_until_future_complete(self.sub_node,action_finished_future,mte)
+            rclpy.spin_until_future_complete(self.sub_node,action_finished_future)
 
 def main(args=None):
     rclpy.init(args=args)
     plan_executor_node = PlanExecutorNode()
-    plan_executor_node.launch_mission()
+    #plan_executor_node.launch_mission()
     rclpy.spin(plan_executor_node)
     
     plan_executor_node.destroy_node()
