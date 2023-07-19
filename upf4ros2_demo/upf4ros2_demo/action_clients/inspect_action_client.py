@@ -1,4 +1,4 @@
-from upf4ros2_demo.action_clients.customaction_client import CustomActionClient
+from upf4ros2_demo.action_clients.custom_action_client import CustomActionClient
 from ament_index_python.packages import get_package_share_directory
 import json
 from geometry_msgs.msg import Pose
@@ -6,12 +6,12 @@ from geometry_msgs.msg import Pose
 
 class InspectActionClient(CustomActionClient):
     """
-    <summary>
+    Action client for the inspect action
     
-    :param Node node: <description>
-    :param Callable feedback_callback: <description>
-    :param Callable result_callback: <description>
-    :param string drone_prefix: <description>
+    :param Node node: the plan executor node
+    :param Callable feedback_callback: function pointer for feedback callback function in plan executor
+    :param Callable result_callback: function pointer for result callback function in plan executor
+    :param string drone_prefix: drone identifier for the action client, so the correct respective server is called (for multiple drones)
     """
 
     def __init__(self, node, feedback_callback, result_callback, drone_prefix):

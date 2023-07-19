@@ -7,19 +7,21 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 
 class CustomActionClient:
     """
-    Template class used to create an action
+    Template class used to create an action client
     
-    :param Node node: <description>
-    :param Callable feedback_callback: <description>
-    :param Callable result_callback: <description>
-    :param string ros_action_name: <description>
+    
     """
     def __init__(self, node, feedback_callback, result_callback, ros_action_name):
         """
         Constructor method
+        
+        :param Node node: the plan executor node
+        :param Callable feedback_callback: function pointer for feedback callback function in plan executor
+        :param Callable result_callback: function pointer for result callback function in plan executor
+        :param string ros_action_name: action name for the action client -> has to match with name on server side
         """
         self.action_name = ''
-        self.logger = logging.get_logger(self.__class__.__name__) #self.__class__.__name__ otherwise __class__.__name__ print CustomActionClient
+        self.logger = logging.get_logger(self.__class__.__name__)
         self.callback_group = ReentrantCallbackGroup()
         self.__action_client = ActionClient(node, NavigateToPose, ros_action_name, callback_group=self.callback_group)#ARG
         self._action = None
@@ -32,11 +34,11 @@ class CustomActionClient:
         
     def send_action_goal(self, actionInstance, params, future):
         """
-        <summary>
+        Send an action goal to the action server
         
-        :param <type> actionInstance: <description>
-        :param <type> params: <description>
-        :param Future future: <description>
+        :param actionInstance: executed action
+        :param params: params of the action
+        :param Future future: future handle that will be set when the action is finished -> plan executor gets notified and starts next action
         """
         self.logger.info(f"Starting action '{self.action_name}'")
         self._action = actionInstance
@@ -45,29 +47,40 @@ class CustomActionClient:
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose.header.frame_id = "map"
         
-        goal_msg=self.create_goalmsg(goal_msg)
+        goal_msg = self.create_goalmsg(goal_msg)
     
         self._send_goal_future = self.__action_client.send_goal_async(goal_msg)
         self._send_goal_future.add_done_callback(self.goal_response_callback)
+        
+    def cancel_action_goal(self):
+        """
+        Cancels the current action
+        
+        """
+        self.logger.info('Cancelling goal')
+        try:
+            self._goal_handle.cancel_goal()
+        except:
+            self.logger.info('Error! No valid goal handle')
 
 
     def create_goalmsg(self, goal_msg):
         """
-        <summary>
+        Function that can be overwritten by child clients to create custom goal messages
         
-        :param NavigateToPose goal_msg: <description>
+        :param NavigateToPose goal_msg: the goal message to be passed to the action server
         
-        :returns: goal_msg: <description>
-        :rtype: NavigateToPose
+        :returns: goal_msg: The goal message that is passed to the action server
+        :rtype: NavigateToPose msg
         """
         return goal_msg
 
         
     def goal_response_callback(self, future):
         """
-        <summary>
+        Handles the goal response from the action server
         
-        :param Future future: <description>
+        :param Future future: the future containing the response from the action server
         
         """
         self._goal_handle = future.result()
@@ -79,9 +92,9 @@ class CustomActionClient:
         
     def get_result_callback(self, future):
         """
-        <summary>
+        Handles the result from the action server and forwards it to the plan executor
         
-        :param Future future: <description>
+        :param Future future: the future containing the response from the action server
         
         """
         self.result_callback(self._action, self._params, future.result().status)
@@ -89,14 +102,3 @@ class CustomActionClient:
         # TODO: replace magic number -> 4 is the code for successfully completed action in NavigateToPose action format, 5 for canceled action
         if status == 4:
             self.future_handle.set_result("Finished")
-
-    def cancel_action_goal(self):
-        """
-        <summary> 
-        
-        """
-        self.logger.info('Cancelling goal')
-        try:
-            self._goal_handle.cancel_goal()
-        except:
-            self.logger.info('Error! No valid goal handle')
