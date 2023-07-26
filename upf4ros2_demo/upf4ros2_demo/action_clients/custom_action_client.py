@@ -1,6 +1,9 @@
 from rclpy import logging
 from rclpy.action import ActionClient
+
 from nav2_msgs.action import NavigateToPose
+from action_msgs.msg import GoalStatus
+
 from rclpy.task import Future
 from threading import Event
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -99,6 +102,6 @@ class CustomActionClient:
         """
         self.result_callback(self._action, self._params, future.result())
         status = future.result().status
-        # TODO: replace magic number -> 4 is the code for successfully completed action in NavigateToPose action format, 5 for canceled action
-        if status == 4:
+        # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED)
+        if status == GoalStatus.STATUS_SUCCEEDED:
             self.future_handle.set_result("Finished")
