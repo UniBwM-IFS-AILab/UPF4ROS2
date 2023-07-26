@@ -6,6 +6,8 @@ from rclpy.action import ActionServer
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 
+from action_msgs.msg import GoalStatus
+
 from ament_index_python.packages import get_package_share_directory
 
 from upf4ros2.ros2_interface_reader import ROS2InterfaceReader
@@ -210,8 +212,8 @@ class PlanExecutorNode(Node):
         :param params: The params (in UPF format) of the completed action
         :param result: Returned result of the completed action, contains goal status as well as action specific fields (see https://docs.ros2.org/galactic/api/action_msgs/msg/GoalStatus.html for goal status ENUMS)
         """
-        # TODO: replace magic number -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action
-        if result.status == 4:
+        # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED)
+        if result.status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
             self.update_initial_state(self._actions[action.action_name], params)
         else:
