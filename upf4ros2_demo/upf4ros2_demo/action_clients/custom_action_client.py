@@ -97,7 +97,7 @@ class CustomActionClient:
         :param Future future: the future containing the response from the action server
         
         """
-        self.result_callback(self._action, self._params, future.result().status)
+        self.result_callback(self._action, self._params, future.result())
         status = future.result().status
         # TODO: replace magic number -> 4 is the code for successfully completed action in NavigateToPose action format, 5 for canceled action
         if status == 4:
