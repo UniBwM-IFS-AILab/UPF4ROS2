@@ -8,7 +8,7 @@ def launch_setup(context, *args, **kwargs):
     count = int(context.perform_substitution(LaunchConfiguration('count')))
     
     drone_count = count
-    ld = LaunchDescription()
+    launch_array =  []
     
     for i in range(0,drone_count):
         plan_executor_node = Node(
@@ -20,9 +20,9 @@ def launch_setup(context, *args, **kwargs):
             ],
             emulate_tty=True,
             output='screen')
-        ld.add_action(plan_executor_node)
+        launch_array.append(plan_executor_node)
         
-    return ld
+    return launch_array
 
 def generate_launch_description():
     return LaunchDescription(
