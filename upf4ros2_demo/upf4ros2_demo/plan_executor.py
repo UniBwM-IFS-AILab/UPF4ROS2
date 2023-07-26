@@ -204,13 +204,14 @@ class PlanExecutorNode(Node):
         """
         Handles the callback from an action client after an action was executed.
 
+        official reference implementation: https://github.com/ros2/examples/blob/master/rclpy/actions/minimal_action_client/examples_rclpy_minimal_action_client/client.py
         
         :param action: The action (in UPF format) that was completed
         :param params: The params (in UPF format) of the completed action
-        :param result: Return code of the completed action
+        :param result: Returned result of the completed action, contains goal status as well as action specific fields (see https://docs.ros2.org/galactic/api/action_msgs/msg/GoalStatus.html for goal status ENUMS)
         """
-        # TODO: replace magic number -> 4 is the code for successfully completed action in NavigateToPose action format, 5 for canceled action
-        if result == 4:
+        # TODO: replace magic number -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action
+        if result.status == 4:
             self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
             self.update_initial_state(self._actions[action.action_name], params)
         else:
