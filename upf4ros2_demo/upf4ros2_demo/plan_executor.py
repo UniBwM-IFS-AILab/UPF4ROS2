@@ -34,6 +34,8 @@ from upf4ros2_demo.action_clients.inspect_action_client import InspectActionClie
 from rclpy.action import ActionServer
 from upf4ros2_demo_msgs.action import Mission
 
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+
 
 class PlanExecutorNode(Node):
     """
@@ -55,6 +57,8 @@ class PlanExecutorNode(Node):
         self._plan = []
         self._current_action_future = None
         self._current_action_client = None
+        
+        callback_group = MutuallyExclusiveCallbackGroup()
         
         self.declare_parameter('drone_prefix', rclpy.Parameter.Type.STRING)
         self.declare_parameter('drone_id',rclpy.Parameter.Type.INTEGER)
@@ -324,17 +328,20 @@ class PlanExecutorNode(Node):
         """
         mte = MultiThreadedExecutor()
         self.get_plan_srv()
-        plan_finished_future = Future()
+        plan_finished_future = Future(executor=mte)
         while plan_finished_future.done() == False:
-            action_finished_future = Future()
+            action_finished_future = Future(executor=mte)
             self.execute_plan(action_finished_future,plan_finished_future)
-            rclpy.spin_until_future_complete(self.sub_node,action_finished_future)
+            rclpy.spin_until_future_complete(self.sub_node,action_finished_future,mte)
 
 def main(args=None):
     rclpy.init(args=args)
+    mte = MultiThreadedExecutor()
     plan_executor_node = PlanExecutorNode()
+    mte.add_node(plan_executor_node)
     #plan_executor_node.launch_mission()
-    rclpy.spin(plan_executor_node)
+    mte.spin()
+    # rclpy.spin(plan_executor_node)
     
     plan_executor_node.destroy_node()
     rclpy.shutdown()
