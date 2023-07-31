@@ -15,7 +15,8 @@ $ colcon build --symlink-install
 ```
 
 In src/UPF4ROS2/upf4ros2 run `sudo python3 setup.py install`. After every build, you also need to run `source install/setup.bash`
-You might need to install the nav2 package for ROS2: https://navigation.ros.org/getting_started/index.html
+
+Also, you need to install the nav2 package for ROS2: https://navigation.ros.org/getting_started/index.html
 
 ## Multi-agent manager
 
