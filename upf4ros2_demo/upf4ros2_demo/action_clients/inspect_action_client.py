@@ -37,5 +37,6 @@ class InspectActionClient(CustomActionClient):
         wp_pose.position.y = float(wp_resolved[1])
         wp_pose.position.z = float(wp_resolved[2])
         goal_msg.pose.pose = wp_pose
+        goal_msg.pose.header.frame_id = "map"
         
         return goal_msg
