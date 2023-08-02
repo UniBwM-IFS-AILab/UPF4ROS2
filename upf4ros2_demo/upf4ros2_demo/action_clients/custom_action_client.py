@@ -14,7 +14,7 @@ class CustomActionClient:
     
     
     """
-    def __init__(self, node, feedback_callback, result_callback, ros_action_name):
+    def __init__(self, node, feedback_callback, result_callback, ros_action_name, action_type = NavigateToPose):
         """
         Constructor method
         
@@ -22,11 +22,13 @@ class CustomActionClient:
         :param Callable feedback_callback: function pointer for feedback callback function in plan executor
         :param Callable result_callback: function pointer for result callback function in plan executor
         :param string ros_action_name: action name for the action client -> has to match with name on server side
+        :param .action action_type: type of the msg transmitted to the action server --> has to match with type on server side, must be imported here and on the server side
         """
         self.action_name = ''
         self.logger = logging.get_logger(self.__class__.__name__)
         self.callback_group = ReentrantCallbackGroup()
-        self.__action_client = ActionClient(node, NavigateToPose, ros_action_name, callback_group=self.callback_group)#ARG
+        self.__action_client = ActionClient(node, action_type, ros_action_name, callback_group=self.callback_group)#ARG
+        self._action_type = action_type
         self._action = None
         self._params = []
         self._goal_handle = None
@@ -47,8 +49,7 @@ class CustomActionClient:
         self._action = actionInstance
         self._params = params
         self.future_handle = future
-        goal_msg = NavigateToPose.Goal()
-        goal_msg.pose.header.frame_id = "map"
+        goal_msg = self._action_type.Goal()
         
         goal_msg = self.create_goalmsg(goal_msg)
     
@@ -71,11 +72,12 @@ class CustomActionClient:
         """
         Function that can be overwritten by child clients to create custom goal messages
         
-        :param NavigateToPose goal_msg: the goal message to be passed to the action server
+        :param self._action_type goal_msg: the goal message to be passed to the action server
         
         :returns: goal_msg: The goal message that is passed to the action server
-        :rtype: NavigateToPose msg
+        :rtype: self._action_type msg
         """
+        goal_msg.pose.header.frame_id = "map"
         return goal_msg
 
         

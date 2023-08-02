@@ -18,6 +18,7 @@ from upf4ros2_demo.action_clients.take_off_action_client import TakeOffActionCli
 from upf4ros2_demo.action_clients.land_action_client import LandActionClient
 from upf4ros2_demo.action_clients.fly_action_client import FlyActionClient
 from upf4ros2_demo.action_clients.inspect_action_client import InspectActionClient
+from upf4ros2_demo.action_clients.sequence_action_client import SequenceActionClient
 from upf4ros2_demo.action_clients.custom_action_client import CustomActionClient
 
 from upf_msgs.action import (
@@ -86,11 +87,13 @@ class PlanExecutorNode(Node):
         self._land_client = LandActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         self._fly_client = FlyActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         self._inspect_client = InspectActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        self._sequence_client = SequenceActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         
         # maps the action clients to their respective action names from the pddl domain file
         self._action_client_map = {'take_off': self._take_off_client,
                                    'land': self._land_client,
-                                   'fly': self._fly_client
+                                   'fly': self._fly_client,
+                                   'action_sequence': self._sequence_client
                                    }
         
         self._plan_pddl_one_shot_client = ActionClient(self, PDDLPlanOneShot, 'upf4ros2/action/planOneShotPDDL')
@@ -258,7 +261,42 @@ class PlanExecutorNode(Node):
         #test code -> delete later
         #self.add_goal(self._fluents['visited'](self._objects['myuav'],self._objects['waters1']))
 
+    def execute_sequence(self, sequence_length, action_finished_future, plan_finished_future):
+        """
+        Executes a sequence of #sequence_length actions of the plan. If no next action is available -> plan is completed and terminate
+
+        :param sequence_length: number of actions that should be grouped into a single sequence. Use the sequence_action_client for this purpose
+        :param action_finished_future: future that should be set when an action is completed so next action in the plan can be started
+        :param plan_finished_future: future that should be set when a plan is completed so next plan can be started
+        """
         
+        if len(self._plan) == 0:
+            self.get_logger().info('Plan completed!')
+            plan_finished_future.set_result("Finished")
+            action_finished_future.set_result("NoAction")
+            return
+        
+        # if sequence_length is too high, adjust it down to the remaining actions in the plan
+        sequence_length = min(len(self._plan), sequence_length)
+        
+        self._current_action_future = action_finished_future
+        actions = []
+        params_list = []
+        
+        for i in range(sequence_length):
+            action = self._plan.pop(0)
+            actions.append(action)
+            params = [x.symbol_atom[0] for x in action.parameters]
+            params_list.append(params)
+            self.get_logger().info("Next action in sequence: " + action.action_name+"("+", ".join(params)+")")
+            
+        self.get_logger().info("End of sequence")
+        
+        action_client : CustomActionClient = self._action_client_map['action_sequence']
+        action_client.send_action_goal(actions, params_list, action_finished_future)
+        self._current_action_client = action_client
+    
+    
     def replan(self, request, response):
         """
         Handles a replan request from a client. The function will:
@@ -316,6 +354,7 @@ class PlanExecutorNode(Node):
         while plan_finished_future.done() == False:
             action_finished_future = Future(executor = mte)
             self.execute_plan(action_finished_future,plan_finished_future)
+            #self.execute_sequence(2,action_finished_future,plan_finished_future)
             rclpy.spin_until_future_complete(self.sub_node,action_finished_future,mte)
 
 def main(args=None):
