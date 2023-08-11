@@ -15,6 +15,11 @@ import time
 
 
 class MissionManager(Node):
+    """
+    Class use to handle the generation of problem and launch request to the
+    plan executor node as well as launching new request when
+    the previous are done
+    """
 
     def __init__(self,model):
         super().__init__('game_manager')
@@ -28,11 +33,21 @@ class MissionManager(Node):
         
 
     def problem_model(self):
+        """
+        Return the class used to create the PDDL files from the model used
+        :return:
+        :rtype: ProblemMSG
+        """
         return ProblemMSG(self.model,5)
     
 
     #Gam solver with status argument
     def solve_problem_model_status(self,status):
+        """
+        For a given status, generate the problem file of the
+        corresponding solution
+        :param status: State of the game to solve
+        """
         self.get_logger().info("Start gen pddl")
         self.problem.problem_gen(status,0)
         self.get_logger().info("End gen pddl")
@@ -40,16 +55,24 @@ class MissionManager(Node):
         
     #Action launcher with status as arg
     def launch_mission(self,init_status):
+        """
+        Launch one mission cycle (creating problem and requesting an execution)
+        :param init_status: Initial state at the beginning of the cycle
+        """
         self.get_logger().info("Begin Mission")
         goal_msg=Mission.Goal()
         goal_msg.init_status=init_status
+        # Create the problem file for the current state
         self.problem.problem_gen(tuple(init_status),0)
         self.get_logger().info("Gen end")
+        # Wait  for the plan_executor node (drone) to start
         for i in range(self.nb_drone):
             self.action_clients[i].wait_for_server()
         self.get_logger().info("Wait End")
         li_send_goal_future=[]
         time.sleep(2)
+        # Send an action request to each node to compute and execute
+        # the problem plan
         for i in range(self.nb_drone):
             tmp_send_goal_future=self.action_clients[i].send_goal_async(goal_msg)
             tmp_send_goal_future.add_done_callback(self.goal_response_callback)
@@ -59,6 +82,10 @@ class MissionManager(Node):
 
     #future callback for action
     def goal_response_callback(self, future):
+        """
+        Callback function for the action
+        :param future:
+        """
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().info('Goal rejected')
@@ -69,9 +96,16 @@ class MissionManager(Node):
         
         
     def get_result_callback(self, future):
+        """
+        Result callback function for the mission action, launching another
+        action request when every drone finish their previous one
+        :param future:
+        """
         result = future.result().result
         self.get_logger().info('Result: {0}'.format(result.final_status))
         self.nb_result_received+=1
+        # Wait for every execution node to send the result back
+        # (meaning the mission ended succesfully )
         if self.nb_result_received==self.nb_drone:
             self.nb_result_received=0
             self.launch_mission(result.final_status)
