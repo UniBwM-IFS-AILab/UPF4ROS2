@@ -87,7 +87,7 @@ class PlanExecutorNode(Node):
         self._land_client = LandActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         self._fly_client = FlyActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         self._inspect_client = InspectActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
-        self._sequence_client = SequenceActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        self._sequence_client = SequenceActionClient(self.sub_node,self.sequence_feedback_callback,self.finished_sequence_callback, self._drone_prefix)
         
         # maps the action clients to their respective action names from the pddl domain file
         self._action_client_map = {'take_off': self._take_off_client,
@@ -215,15 +215,50 @@ class PlanExecutorNode(Node):
         :param params: The params (in UPF format) of the completed action
         :param result: Returned result of the completed action, contains goal status as well as action specific fields (see https://docs.ros2.org/galactic/api/action_msgs/msg/GoalStatus.html for goal status ENUMS)
         """
+        
         # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED)
         if result.status == GoalStatus.STATUS_SUCCEEDED:
+            #following line broken with sequence_action_client because it is meant for single actions, not a list of [action]
             self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
             self.update_initial_state(self._actions[action.action_name], params)
         else:
             self.get_logger().info("Canceled action: " + action.action_name+"("+", ".join(params)+")")
-        # TODO: add error handling
+            # TODO: add error handling
+        
+    def finished_sequence_callback(self, actions = [], params = [[]], result = 0):
+        """
+        Wrapper for the callback from the action sequence client after the sequence was executed/canceled.
+
+        :param action: The list of actions (in UPF format) that was completed
+        :param params: The list of params (in UPF format) of the completed action
+        :param result: Returned result of the completed sequence, contains goal status as well as action specific fields (see https://docs.ros2.org/galactic/api/action_msgs/msg/GoalStatus.html for goal status ENUMS)
+        """
+        
+        #self.get_logger().info("Completed sequence of actions")
+        #self.get_logger().info(f"result status: {result.status}")
+        #self.get_logger().info(f"actions: {actions}")
+        
+        if result.status == GoalStatus.STATUS_SUCCEEDED:
+        
+            self.get_logger().info(f"Completed sequence of {len(actions)} actions")
+            
+            for idx, action in enumerate(actions):
+                self.finished_action_callback(action, params[idx], result)
+                
+        else:
+            self.get_logger().info("Canceled action at index " + "<action index here>" + f" out of {len(actions)} total")
+            # TODO: call self.finished_action_callback(action, params[idx], result) for every successfully completed action
+            # TODO: put into canceled sequence result in offboard_control a value to derive number of finished actions
 
     def action_feedback_callback(self, action, params, feedback):
+        """
+        Handles the feedback received by an action client
+        # TODO: add implementation
+        
+        """
+        None
+        
+    def sequence_feedback_callback(self, action, params, feedback):
         """
         Handles the feedback received by an action client
         # TODO: add implementation
@@ -275,6 +310,8 @@ class PlanExecutorNode(Node):
             plan_finished_future.set_result("Finished")
             action_finished_future.set_result("NoAction")
             return
+        
+        self.get_logger().info("Begin execution of sequence")
         
         # if sequence_length is too high, adjust it down to the remaining actions in the plan
         sequence_length = min(len(self._plan), sequence_length)
@@ -353,8 +390,8 @@ class PlanExecutorNode(Node):
         plan_finished_future = Future(executor = mte)
         while plan_finished_future.done() == False:
             action_finished_future = Future(executor = mte)
-            self.execute_plan(action_finished_future,plan_finished_future)
-            #self.execute_sequence(2,action_finished_future,plan_finished_future)
+            #self.execute_plan(action_finished_future,plan_finished_future)
+            self.execute_sequence(2,action_finished_future,plan_finished_future)
             rclpy.spin_until_future_complete(self.sub_node,action_finished_future,mte)
 
 def main(args=None):
