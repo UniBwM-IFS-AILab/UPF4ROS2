@@ -22,9 +22,12 @@ class FlyActionClient(CustomActionClient):
         self._lookupTable = dict()
         with open(lookupTablePath) as file:
             self._lookupTable = json.load(file)
-        # set initial home coordinates; overwrite later
-        #self._lookupTable['home'] = [0,0,0]
+        #set initial home coordinates; overwrite later
+        self.set_home(0,0,0)
         self.action_name="Fly"
+        
+    def set_home(self, lat, lon, alt):
+        self._lookupTable['home'] = [lat,lon,alt]
     
     
     def create_goalmsg(self, goal_msg):
