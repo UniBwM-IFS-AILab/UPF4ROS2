@@ -24,7 +24,9 @@ class MissionManager(Node):
     def __init__(self,model):
         super().__init__('game_manager')
         self.nb_drone=2
+        # Model: Stochastic game or another custom model (MDP,...)
         self.model=model
+        # Problem: Object to convert the current model into a set of PDDL problem
         self.problem=self.problem_model()
         self.nb_result_received=0
         self.action_clients=[]
@@ -80,7 +82,6 @@ class MissionManager(Node):
             time.sleep(2)
         
 
-    #future callback for action
     def goal_response_callback(self, future):
         """
         Callback function for the action
@@ -108,15 +109,16 @@ class MissionManager(Node):
         # (meaning the mission ended succesfully )
         if self.nb_result_received==self.nb_drone:
             self.nb_result_received=0
-            self.launch_mission(result.final_status)
-        #self.current_status=result.final_status
-        #return result.final_status
-        #rclpy.shutdown()
+            #Implmentation of update of state in there if necessary
+            new_state=result.final_status
+            self.launch_mission(new_state)
     
 
 
 def main(args=None):
+    # Distance Matrix between drone and site, set to 0
     tmp_zeros = np.zeros((2, 4))
+    # Hardcoded Monitor game
     mobis = MonitorSG(2, 4,
                       [[0, 0, 0, 0], [1, 1, 1, 1]],
                       [
@@ -128,7 +130,7 @@ def main(args=None):
                       )
     rclpy.init()
     gamenode=MissionManager(mobis)
-    #gamenode.solve_problem_model()
+    # Hardcoded state initial status
     status=[0,1,1,1]
     gamenode.launch_mission(status)
     rclpy.spin(gamenode)
@@ -147,6 +149,6 @@ if __name__ == "__main__":
 # [[1 - 0.42, 0.42], [1 - 0.42, 0.42]]]
 
 # [[[1 - 0.64, 0.64], [1 - 0.35, 0.35]],
-                       # [[1 - 0.56, 0.56], [1 - 0.36, 0.36]],
-                       # [[1 - 0.855, 0.855], [1 - 0.64, 0.64]],
-                       # [[1 - 0.42, 0.42], [1 - 0.42, 0.42]]],
+# [[1 - 0.56, 0.56], [1 - 0.36, 0.36]],
+# [[1 - 0.855, 0.855], [1 - 0.64, 0.64]],
+# [[1 - 0.42, 0.42], [1 - 0.42, 0.42]]],

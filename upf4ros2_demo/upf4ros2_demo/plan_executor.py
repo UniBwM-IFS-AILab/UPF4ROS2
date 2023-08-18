@@ -326,6 +326,7 @@ class PlanExecutorNode(Node):
         Launch a computation and execution of the plan
         
         """
+        # MultiThreadedExecutor to avoid deadlock
         mte = MultiThreadedExecutor()
         self.get_plan_srv()
         plan_finished_future = Future(executor=mte)
@@ -336,11 +337,12 @@ class PlanExecutorNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    mte = MultiThreadedExecutor()
+    #Multi threaded executor is used to avoid deadlock when multiple drone are used with replanning
+    mte_out = MultiThreadedExecutor()
     plan_executor_node = PlanExecutorNode()
-    mte.add_node(plan_executor_node)
+    mte_out.add_node(plan_executor_node)
     #plan_executor_node.launch_mission()
-    mte.spin()
+    mte_out.spin()
     # rclpy.spin(plan_executor_node)
     
     plan_executor_node.destroy_node()

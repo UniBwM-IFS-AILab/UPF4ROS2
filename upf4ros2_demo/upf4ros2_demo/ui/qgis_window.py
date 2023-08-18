@@ -253,6 +253,7 @@ class CustomWind(QMainWindow):
                 self.drone_num_to_current_data_index[drone_num]+=1
         path_lay.commitChanges()
         drone_lay.commitChanges()
+        #Reset the timer to 15 seconds
         self.timer.start(15001)
         return 0
     
@@ -293,22 +294,26 @@ def main(args=None):
     """
     """
     rclpy.init()
+    #Init for Qgis and QT use
     QgsApplication.setPrefixPath("/usr/", True)
     qgs=QgsApplication([],False)
     qgs.initQgis()
     
+    #Creation of the layers
     lidar_layer_out=gen_lidarlayer()
     zone_layer_out=gen_zonelayer()
     drone_layer_out=gen_dronelayer()
     path_layer_out=gen_pathlayer()
-
-
+    
+    # Adding the layer to Qgis project
     add_layer_toproject(lidar_layer_out,"Cloud")
     add_layer_toproject(zone_layer_out,"Vectorzone")
     add_layer_toproject(path_layer_out,"VectorLine")
     add_layer_toproject(drone_layer_out,"VectorPoint")
     
+    #Creating the window
     cuswin=CustomWind([drone_layer_out,path_layer_out,zone_layer_out,lidar_layer_out],2)
+    #Use of thread to avoid conflict between Qgis, QT and ROS
     cuswin.thread.start()
     cuswin.show()
 
