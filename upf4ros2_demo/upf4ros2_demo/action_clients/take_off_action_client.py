@@ -1,6 +1,6 @@
 from upf4ros2_demo.action_clients.custom_action_client import CustomActionClient
 
-
+from as2_msgs.action import TakeOff
 
 class TakeOffActionClient(CustomActionClient):
     """
@@ -13,5 +13,5 @@ class TakeOffActionClient(CustomActionClient):
     """
     def __init__(self, node, feedback_callback, result_callback, drone_prefix):
         action_name = drone_prefix + "takeoff"
-        super().__init__(node, feedback_callback, result_callback, action_name)
+        super().__init__(node, feedback_callback, result_callback, action_name, TakeOff)
         self.action_name="Take Off"
