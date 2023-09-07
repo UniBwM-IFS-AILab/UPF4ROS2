@@ -1,4 +1,3 @@
-import json
 from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Pose
 from upf4ros2_demo.action_clients.custom_action_client import CustomActionClient
@@ -14,21 +13,13 @@ class FlyActionClient(CustomActionClient):
     :param Callable result_callback: function pointer for result callback function in plan executor
     :param string drone_prefix: drone identifier for the action client, so the correct respective server is called (for multiple drones)
     """
-    def __init__(self, node, feedback_callback, result_callback, drone_prefix):
+    def __init__(self, node, feedback_callback, result_callback, drone_prefix, lookup_table):
         action_name = drone_prefix + "navigate_to_pose"
         super().__init__(node, feedback_callback, result_callback, action_name)
-        lookupTablePath = (get_package_share_directory('upf4ros2_demo')
-                                + str('/params/lookupTable.json'))
-        self._lookupTable = dict()
-        with open(lookupTablePath) as file:
-            self._lookupTable = json.load(file)
-        #set initial home coordinates; overwrite later
-        self.set_home(0,0,0)
+        # manipulate lookup_table globally from plan_executor
+        self._lookupTable = lookup_table
         self.action_name="Fly"
         
-    def set_home(self, lat, lon, alt):
-        self._lookupTable['home'] = [lat,lon,alt]
-    
     
     def create_goalmsg(self, goal_msg):
         wp = self._action.parameters[2].symbol_atom[0]

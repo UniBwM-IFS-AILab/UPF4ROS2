@@ -15,3 +15,13 @@ class TakeOffActionClient(CustomActionClient):
         action_name = drone_prefix + "takeoff"
         super().__init__(node, feedback_callback, result_callback, action_name, TakeOff)
         self.action_name="Take Off"
+
+    def create_goalmsg(self, goal_msg):
+        """
+        :param self._action_type goal_msg: the goal message to be passed to the action server
+        
+        :returns: goal_msg: The goal message that is passed to the action server
+        :rtype: self._action_type msg
+        """
+        goal_msg.takeoff_height = 10
+        return goal_msg
