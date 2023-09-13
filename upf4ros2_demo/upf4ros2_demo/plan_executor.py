@@ -153,6 +153,8 @@ class PlanExecutorNode(Node):
 
         
     def set_home(self, lat, lon, alt):
+        # home should be a little above actual takeoff position to make sure that landing works out properly
+        alt = alt + 3
         self.get_logger().info(f"setting home position to ({lat}, {lon}, {alt})") 
         self._lookupTable['home'] = [lat,lon,alt]
         
