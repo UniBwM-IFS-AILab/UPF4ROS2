@@ -62,7 +62,7 @@ class CustomActionClient:
         self.send_goal_msg(goal_msg)
         
     def send_goal_msg(self, goal_msg):
-        self._send_goal_future = self.__action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
+        self._send_goal_future = self.__action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_wrapper)
         # self.retransmit_goal_after_timeout(5, goal_msg)
         # the timer should be canceled when progressing to goal_response_callback
         # do this via adding an additional add_done_callback
@@ -144,7 +144,7 @@ class CustomActionClient:
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.future_handle.set_result("Finished")
 
-    def feedback_callback(self, feedback_msg):
+    def feedback_wrapper(self, feedback_msg):
         """
         Processes Feedback messages from the action server and forwards it to the plan executor, can be overwritten in inheriting classes
         
@@ -153,4 +153,5 @@ class CustomActionClient:
         """
         feedback = feedback_msg.feedback
         # feedback.<attribute>
-        # TODO forward to plan_executor
+        # Forward to plan_executor via feedback_callback
+        self.feedback_callback(self._action,self._params,feedback)
