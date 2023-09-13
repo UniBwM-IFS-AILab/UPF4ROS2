@@ -149,10 +149,11 @@ class PlanExecutorNode(Node):
                              resp.origin.altitude]
                 self.set_home(*self._home)
                 
-        await_remote_origin = self.get_origin_remote(origin_result_callback)
+        self.get_origin_remote(origin_result_callback)
 
         
     def set_home(self, lat, lon, alt):
+        self.get_logger().info(f"setting home position to ({lat}, {lon}, {alt})") 
         self._lookupTable['home'] = [lat,lon,alt]
         
     def get_origin_remote(self, origin_result_callback = lambda: None):
@@ -198,7 +199,7 @@ class PlanExecutorNode(Node):
             ret = callback_function(*args, **kwargs)
             # Remove the future now that its callback is done
             if future in self._tmp_futures:
-                self._futures.remove(future)
+                self._tmp_futures.remove(future)
         return decorate
     
     def set_initial_value(self, fluent, object, value_fluent):

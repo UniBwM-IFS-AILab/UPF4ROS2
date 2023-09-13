@@ -152,4 +152,5 @@ class CustomActionClient:
         
         """
         feedback = feedback_msg.feedback
+        # feedback.<attribute>
         # TODO forward to plan_executor
