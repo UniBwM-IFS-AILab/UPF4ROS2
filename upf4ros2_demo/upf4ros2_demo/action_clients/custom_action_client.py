@@ -30,8 +30,13 @@ class CustomActionClient:
         self.callback_group = ReentrantCallbackGroup()
         self.__action_client = ActionClient(node, action_type, ros_action_name, callback_group=self.callback_group)#ARG
         self._action_type = action_type
+        
+        # delete _action and _params from inheriting classes if not used with plan_executor
+        # also overwrite send_action_goal, get_result_callback, feedback_wrapper
+        # https://stackoverflow.com/questions/42303601/pythonic-way-to-delete-variable-from-self-if-it-exists-in-a-list
         self._action = None
         self._params = []
+        
         self._goal_handle = None
         self.action_done_event = Event()
         self.feedback_callback = feedback_callback
