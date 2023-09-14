@@ -147,15 +147,12 @@ class PlanExecutorNode(Node):
     def origin_received_callback(future: Future):
         if future.done() and not future.cancelled():
             resp = future.result()
-            self._home = [resp.origin.latitude,
-                          resp.origin.longitude,
-                          resp.origin.altitude]
-            self.set_home(*self._home)
+            self.set_home(resp.origin.latitude, resp.origin.longitude, resp.origin.altitude)
                 
     def set_home(self, lat, lon, alt):
         # home should be a little above actual takeoff position to make sure that landing works out properly
         alt = alt + 3
-        self.get_logger().info(f"setting home position to ({lat}, {lon}, {alt})") 
+        self.get_logger().info(f"setting home position to ({lat}, {lon}, {alt})")
         self._lookupTable['home'] = [lat,lon,alt]
         
     def get_origin_remote(self, origin_result_callback = lambda: None):
