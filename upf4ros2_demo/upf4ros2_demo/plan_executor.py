@@ -1,4 +1,5 @@
 import rclpy
+import json
 
 from rclpy.task import Future
 from rclpy.action import ActionClient
@@ -13,6 +14,12 @@ from ament_index_python.packages import get_package_share_directory
 from upf4ros2.ros2_interface_reader import ROS2InterfaceReader
 from upf4ros2.ros2_interface_writer import ROS2InterfaceWriter
 from upf_msgs import msg as msgs
+
+# aerostack2
+from as2_msgs.srv import (
+    GetOrigin, 
+    SetOrigin
+)
 
 from upf4ros2_demo.action_clients.take_off_action_client import TakeOffActionClient
 from upf4ros2_demo.action_clients.land_action_client import LandActionClient
@@ -45,6 +52,10 @@ class PlanExecutorNode(Node):
         """
         super().__init__('plan_executor')
         
+        #####################################
+        #           static init             #
+        #####################################
+        
         # declare params
         self.declare_parameter('domain', '/pddl/uav_domain.pddl')
         self.declare_parameter('problem', '/pddl/generated_uav_instance.pddl')
@@ -52,7 +63,7 @@ class PlanExecutorNode(Node):
         # Separate PDDL files for stochastic game
         # self.declare_parameter('domain', '/pddl/monitor_domain_upf.pddl')
         # self.declare_parameter('problem', '/pddl/monitorproblem_0.pddl')
-
+        
         self._domain = self.get_parameter('domain')
         self._problem = self.get_parameter('problem')
         self._drone_prefix = self.get_parameter('drone_prefix').get_parameter_value().string_value
@@ -73,6 +84,9 @@ class PlanExecutorNode(Node):
         self._current_action_future = None
         # the instance of the action client that executes the current action
         self._current_action_client = None
+        
+        # list of temporary futures; should be manually removed from list via the add_done_callback functionality after the response was taken out
+        self._tmp_futures = []
 
         # can be used to translate from UPF representation to ros msg
         self._ros2_interface_writer = ROS2InterfaceWriter()
@@ -81,13 +95,16 @@ class PlanExecutorNode(Node):
         self._ros2_interface_reader = ROS2InterfaceReader()
         
         self.sub_node = rclpy.create_node('sub_node_' + self._drone_prefix[0:-1], use_global_arguments=False)
-
+        
+        # lookup table for action clients requiring waypoint coordinates
+        self._lookupTable = dict()
+        
         # create action clients
         self._take_off_client = TakeOffActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
         self._land_client = LandActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
-        self._fly_client = FlyActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
+        self._fly_client = FlyActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix, lookup_table=self._lookupTable)
         self._inspect_client = InspectActionClient(self.sub_node,self.action_feedback_callback,self.finished_action_callback, self._drone_prefix)
-        self._sequence_client = SequenceActionClient(self.sub_node,self.sequence_feedback_callback,self.finished_sequence_callback, self._drone_prefix)
+        self._sequence_client = SequenceActionClient(self.sub_node,self.sequence_feedback_callback,self.finished_sequence_callback, self._drone_prefix, lookup_table=self._lookupTable)
         
         # maps the action clients to their respective action names from the pddl domain file
         self._action_client_map = {'take_off': self._take_off_client,
@@ -99,19 +116,94 @@ class PlanExecutorNode(Node):
         self._plan_pddl_one_shot_client = ActionClient(self, PDDLPlanOneShot, 'upf4ros2/action/planOneShotPDDL')
         self.mission_action_server = ActionServer(self,Mission,'mission',self.mission_callback)
         
-        # create clients
+        # create upf4ros service clients
         self._get_problem = self.sub_node.create_client(GetProblem, 'upf4ros2/srv/get_problem')
         self._set_initial_value = self.sub_node.create_client(SetInitialValue, 'upf4ros2/srv/set_initial_value')
         self._plan_pddl_one_shot_client_srv = self.sub_node.create_client(PDDLPlanOneShotSrv, 'upf4ros2/srv/planOneShotPDDL')
+        
+        # create drone service clients
+        self._origin_getter = self.sub_node.create_client(GetOrigin, self._drone_prefix + 'srv/get_origin')
+        self._origin_setter = self.sub_node.create_client(SetOrigin, self._drone_prefix + 'srv/set_origin')
         
         # create services
         replan_server_name = 'upf4ros2/srv/' + self._drone_prefix + 'replan'
         self._replan = self.sub_node.create_service(Replan, replan_server_name, self.replan)
         
         
+        #####################################
+        #           dynamic init            #
+        #####################################
         
+        # load gps coordinates matching the waypoins in the pddl problem
+        # https://stackoverflow.com/questions/8930915/append-a-dictionary-to-a-dictionary
+        lookupTablePath = (get_package_share_directory('upf4ros2_demo') + str('/params/lookupTable.json'))
+        with open(lookupTablePath) as file:
+            self._lookupTable.update(json.load(file))
         
+        # home should be automatically set to the real gps home position instead of [0,0,0] before planning happens
+        self.set_home(0,0,0)
+        self.get_origin_remote(origin_received_callback)
+
+    def origin_received_callback(future: Future):
+        if future.done() and not future.cancelled():
+            resp = future.result()
+            self._home = [resp.origin.latitude,
+                          resp.origin.longitude,
+                          resp.origin.altitude]
+            self.set_home(*self._home)
+                
+    def set_home(self, lat, lon, alt):
+        # home should be a little above actual takeoff position to make sure that landing works out properly
+        alt = alt + 3
+        self.get_logger().info(f"setting home position to ({lat}, {lon}, {alt})") 
+        self._lookupTable['home'] = [lat,lon,alt]
         
+    def get_origin_remote(self, origin_result_callback = lambda: None):
+        """
+        calls to a ROS2 service from the flight controller interface to get the origin position
+        
+        :param origin_result_callback: the callback to be executed when the async call of the service request is done
+        """
+        srv = GetOrigin.Request()
+        #self._origin_getter.wait_for_service()
+        future = self._origin_getter.call_async(srv)
+        future.add_done_callback(self.delete_future_after_callback_done(future, origin_result_callback))
+        return future
+        
+    def set_origin_remote(self, new_origin, origin_result_callback = lambda: None):
+        """
+        calls to a ROS2 service from the flight controller interface to set the origin position to a new_origin
+        
+        :param new_origin: a List[float] of 3 floats containing the new origin coordinates: 
+                           new_origin[0]:= latitude, new_origin[1]:= longitude, new_origin[2]:= altitude
+        :param origin_result_callback: the callback to be executed when the async call of the service request is done
+        """
+        srv_request = SetOrigin.Request()
+        srv_request.origin.latitude = float(new_origin[0])
+        srv_request.origin.longitude = float(new_origin[1])
+        srv_request.origin.altitude = float(new_origin[2])
+        
+        #self._origin_setter.wait_for_service()
+        future = self._origin_setter.call_async(srv_request)
+        future.add_done_callback(self.delete_future_after_callback_done(future, origin_result_callback))
+        return future
+        
+    def delete_future_after_callback_done(self, future, callback_function = lambda: None):
+        """
+        function wrapper inspired by decorators: automatically adds and after it is done deletes a future from the self._tmp_futures list
+        
+        :param future: the future to be deleted when the callback_function is done
+        :param callback_function: the callback to be executed when the future is done
+        """
+        self._tmp_futures.append(future)
+        
+        def decorate(*args, **kwargs):
+            ret = callback_function(*args, **kwargs)
+            # Remove the future now that its callback is done
+            if future in self._tmp_futures:
+                self._tmp_futures.remove(future)
+        return decorate
+    
     def set_initial_value(self, fluent, object, value_fluent):
         """
         Updates the initial value of a problem in the upf4ros problem manager

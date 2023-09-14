@@ -62,7 +62,7 @@ class CustomActionClient:
         self.send_goal_msg(goal_msg)
         
     def send_goal_msg(self, goal_msg):
-        self._send_goal_future = self.__action_client.send_goal_async(goal_msg)
+        self._send_goal_future = self.__action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_wrapper)
         # self.retransmit_goal_after_timeout(5, goal_msg)
         # the timer should be canceled when progressing to goal_response_callback
         # do this via adding an additional add_done_callback
@@ -107,7 +107,6 @@ class CustomActionClient:
         :returns: goal_msg: The goal message that is passed to the action server
         :rtype: self._action_type msg
         """
-        goal_msg.pose.header.frame_id = "map"
         return goal_msg
 
         
@@ -144,3 +143,15 @@ class CustomActionClient:
         # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED)
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.future_handle.set_result("Finished")
+
+    def feedback_wrapper(self, feedback_msg):
+        """
+        Processes Feedback messages from the action server and forwards it to the plan executor, can be overwritten in inheriting classes
+        
+        :param _action_type.Feedback() feedback_msg: the message containing the feedback from the action server
+        
+        """
+        feedback = feedback_msg.feedback
+        # feedback.<attribute>
+        # Forward to plan_executor via feedback_callback
+        self.feedback_callback(self._action,self._params,feedback)
