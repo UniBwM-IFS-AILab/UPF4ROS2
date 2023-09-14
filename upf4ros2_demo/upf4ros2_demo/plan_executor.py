@@ -121,7 +121,7 @@ class PlanExecutorNode(Node):
         self._set_initial_value = self.sub_node.create_client(SetInitialValue, 'upf4ros2/srv/set_initial_value')
         self._plan_pddl_one_shot_client_srv = self.sub_node.create_client(PDDLPlanOneShotSrv, 'upf4ros2/srv/planOneShotPDDL')
         
-        # create offboard control service clients
+        # create drone service clients
         self._origin_getter = self.sub_node.create_client(GetOrigin, self._drone_prefix + 'srv/get_origin')
         self._origin_setter = self.sub_node.create_client(SetOrigin, self._drone_prefix + 'srv/set_origin')
         
@@ -141,17 +141,17 @@ class PlanExecutorNode(Node):
             self._lookupTable.update(json.load(file))
         
         # home should be automatically set to the real gps home position instead of [0,0,0] before planning happens
-        def origin_result_callback(future: Future):
-            if future.done() and not future.cancelled():
-                resp = future.result()
-                self._home = [resp.origin.latitude,
-                             resp.origin.longitude,
-                             resp.origin.altitude]
-                self.set_home(*self._home)
-                
-        self.get_origin_remote(origin_result_callback)
+        self.set_home(0,0,0)
+        self.get_origin_remote(origin_received_callback)
 
-        
+    def origin_received_callback(future: Future):
+        if future.done() and not future.cancelled():
+            resp = future.result()
+            self._home = [resp.origin.latitude,
+                          resp.origin.longitude,
+                          resp.origin.altitude]
+            self.set_home(*self._home)
+                
     def set_home(self, lat, lon, alt):
         # home should be a little above actual takeoff position to make sure that landing works out properly
         alt = alt + 3
