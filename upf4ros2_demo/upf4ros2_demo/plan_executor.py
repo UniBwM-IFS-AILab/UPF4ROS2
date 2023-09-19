@@ -142,9 +142,9 @@ class PlanExecutorNode(Node):
         
         # home should be automatically set to the real gps home position instead of [0,0,0] before planning happens
         self.set_home(0,0,0)
-        self.get_origin_remote(origin_received_callback)
+        self.get_origin_remote(self.origin_received_callback)
 
-    def origin_received_callback(future: Future):
+    def origin_received_callback(self, future: Future):
         if future.done() and not future.cancelled():
             resp = future.result()
             self.set_home(resp.origin.latitude, resp.origin.longitude, resp.origin.altitude)
@@ -305,7 +305,7 @@ class PlanExecutorNode(Node):
         :param result: Returned result of the completed action, contains goal status as well as action specific fields (see https://docs.ros2.org/galactic/api/action_msgs/msg/GoalStatus.html for goal status ENUMS)
         """
         
-        # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED)
+        # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED), STATUS_ABORTED = 6
         if result.status == GoalStatus.STATUS_SUCCEEDED:
             #following line broken with sequence_action_client because it is meant for single actions, not a list of [action]
             self.get_logger().info("Completed action: " + action.action_name+"("+", ".join(params)+")")
