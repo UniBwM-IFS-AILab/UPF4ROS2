@@ -145,7 +145,7 @@ class CustomActionClient:
         self.result_callback(self._action, self._params, future.result())
         status = future.result().status
         # self.logger.info(f"result status: {status}")
-        # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED)
+        # GoalStatus.STATUS_SUCCEEDED -> 4 is the status for successfully completed action in the GoalStatus Message, 5 for canceled action (GoalStatus.STATUS_CANCELED), STATUS_ABORTED = 6
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.future_handle.set_result("Finished")
 
