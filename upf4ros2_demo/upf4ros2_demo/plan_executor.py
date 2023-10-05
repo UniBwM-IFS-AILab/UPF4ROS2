@@ -58,7 +58,9 @@ class PlanExecutorNode(Node):
         
         # declare params
         self.declare_parameter('domain', '/pddl/uav_domain.pddl')
+        #self.declare_parameter('domain', '/pddl/route_domain_gpt_single_fly.pddl')
         self.declare_parameter('problem', '/pddl/generated_uav_instance.pddl')
+        #self.declare_parameter('problem', '/pddl/route_problem_gpt.pddl')
         self.declare_parameter('drone_prefix', rclpy.Parameter.Type.STRING)
         # Separate PDDL files for stochastic game
         # self.declare_parameter('domain', '/pddl/monitor_domain_upf.pddl')
