@@ -17,7 +17,7 @@ In src/UPF4ROS2/upf4ros2 run `sudo python3 setup.py install`. After every build,
 
 Also, you need to install the nav2 package for ROS2: https://navigation.ros.org/getting_started/index.html
 
-For an overview of the most important code files, please refer to https://github.com/UniBwM-IFS-AILab/REAP/tree/main#editing-the-simulation-environment.
+For an overview of the most important code files, please refer to the relevant section in the [REAP](https://github.com/UniBwM-IFS-AILab/REAP/tree/main#important-configuration-and-codefiles) repo.
 
 ## Multi-agent manager
 
