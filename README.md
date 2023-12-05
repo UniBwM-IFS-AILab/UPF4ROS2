@@ -6,8 +6,8 @@ This repository contains a fork of [UPF4ROS2](https://github.com/PlanSys2/UPF4RO
 
 ```
 $ pip install unified-planning[engines]
-$ cd <Plansys2 directory>
-$ cd src
+$ mkdir -p PlanSys/src/
+$ cd PlanSys/src
 $ git clone https://github.com/OvrK12/UPF4ROS2.git
 $ cd ..
 $ colcon build --symlink-install
