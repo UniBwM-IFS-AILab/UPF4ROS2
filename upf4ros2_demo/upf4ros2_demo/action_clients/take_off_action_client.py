@@ -13,7 +13,7 @@ class TakeOffActionClient(CustomActionClient):
     """
     def __init__(self, node, feedback_callback, result_callback, drone_prefix):
         action_name = drone_prefix + "takeoff"
-        super().__init__(node, feedback_callback, result_callback, action_name, TakeOff)
+        super().__init__(node, feedback_callback, result_callback, action_name, Takeoff)
         self.action_name="Take Off"
 
     def create_goalmsg(self, goal_msg):
