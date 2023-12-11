@@ -1,6 +1,6 @@
 from upf4ros2_demo.action_clients.custom_action_client import CustomActionClient
 
-from as2_msgs.action import TakeOff
+from as2_msgs.action import Takeoff
 
 class TakeOffActionClient(CustomActionClient):
     """
